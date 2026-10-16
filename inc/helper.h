@@ -44,4 +44,4 @@ constexpr const char* FA_SOLID_PATH = "assets/fonts/FA-Solid-900.otf";
 
 constexpr const char* FONT_PATH_MAIN = "assets/fonts/comic.ttf";
 
-constexpr const char* ICON_PATH = "assets/textures/icons/icon.png";
+constexpr const char* ICON_PATH = "assets/textures/icons/icon_02.png";

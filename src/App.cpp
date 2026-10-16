@@ -34,6 +34,8 @@ bool App::Init()
 	m_imgMenu = std::make_unique<MainMenuBar>();                        // Main Menu Bar panel for the main window
 	m_imgScene = std::make_unique<TextureViewport>();
 	m_imgExplorer = std::make_unique<TextureExplorerPanel>();
+	m_preview3D = std::make_unique<Preview3DPanel>();
+	m_preview3D->Initialize();
 	m_imgui->SetEnableDocking(true);
 
 	if (!m_imgui->Initialize(m_window->GetWindow()))
@@ -44,6 +46,7 @@ bool App::Init()
 		m_imgMenu.reset();
 		m_imgScene.reset();
 		m_imgExplorer.reset();
+		m_preview3D.reset();
 		m_window->Shutdown();
 		m_window.reset();
 
@@ -63,6 +66,8 @@ int App::Run()
 
 	GLFWwindow* nativeWindow = m_window->GetWindow();
 	bool dockspaceOpen = true;
+
+	
 
 	while (m_isRunning && !glfwWindowShouldClose(nativeWindow))
 	{
@@ -100,6 +105,7 @@ int App::Run()
 			}
 		}
 
+		
 		if (explorerAction == TextureExplorerAction::GenerateNormal)
 		{
 			if (m_doc.sourceLoaded)
@@ -113,6 +119,11 @@ int App::Run()
 					BOX_LOG_INFO("Normal map generated");
 			}
 		}
+		// Draw 3D preview
+		m_preview3D->Draw(m_doc);
+
+		if (explorerAction == TextureExplorerAction::SaveNormal)
+			HandleMenuAction(MenuAction::SaveTexture);
 
 		m_imgui->RenderImGui();
 		glfwSwapBuffers(nativeWindow);
@@ -148,19 +159,25 @@ void App::HandleMenuAction(MenuAction action)
 
 	case MenuAction::SaveTexture:
 	{
-		if (!m_doc.sourceLoaded)
+		if (!m_doc.normalReady)
 		{
-			BOX_LOG_ERROR("No texture loaded to save.");
+			BOX_LOG_ERROR("No normal map generated yet. Click Generate Normal first.");
 			break;
 		}
 
-		std::string path = FileDialog::SaveTexture();
+		//std::string path = FileDialog::SaveTexture();
+		std::string path = FileDialog::SaveTexture(m_doc.SuggestedNormalName());
 		if (!path.empty())
 		{
-			if (!m_doc.sourceImage.SavePNG(path))
-				BOX_LOG_ERROR("Failed to save texture: {}", path);
+			// Make sure the file ends in .png
+			if (path.size() < 4 || path.substr(path.size() - 4) != ".png")
+				path += ".png";
+
+			if (!m_doc.normalImage.SavePNG(path))
+				BOX_LOG_ERROR("Failed to save normal map: {}", path);
 			else
-				BOX_LOG_INFO("Texture saved: {}", path);
+				BOX_LOG_INFO("Normal map saved: {} ({} x {})",
+					path, m_doc.normalImage.width, m_doc.normalImage.height);
 		}
 		break;
 	}
@@ -177,6 +194,8 @@ void App::Shutdown()
 {
 	if (m_imgExplorer) m_imgExplorer->Shutdown();
 	if (m_imgScene)    m_imgScene->Shutdown();
+
+	if (m_preview3D) { m_preview3D->Shutdown(); m_preview3D.reset(); }
 
 	if (m_imgui)
 	{

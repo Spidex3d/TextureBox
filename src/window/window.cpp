@@ -1,6 +1,8 @@
 #include "window/window.h"
 #include <miniBoxLog.h>
 #include <glad/glad.h>
+#include <stb/stb_image.h>
+#include "helper.h"
 
 int Window::s_glfwRefCount = 0;
 
@@ -40,8 +42,21 @@ Window::Window(const WindowConfig& config) : m_config(config)
 
 
 	SetVSync(m_config.vsync);
-
+	SetIcon(window);
 }
+
+void Window::SetIcon(GLFWwindow* window)
+{
+	Helpers helpers;
+	std::string iconPath = helpers.GetAssetPath(ICON_PATH);
+	GLFWimage images[1];
+	images[0].pixels = stbi_load(iconPath.c_str(), &images[0].width, &images[0].height, 0, 4); // rgba = png
+	glfwSetWindowIcon(window, 1, images);
+	stbi_image_free(images[0].pixels);
+}
+
+
+
 
 void Window::Update()
 {

@@ -5,7 +5,8 @@ enum class TextureExplorerAction
 {
     None,
     OpenFileDialog,
-    GenerateNormal
+    GenerateNormal,
+    SaveNormal
 };
 
 class TextureExplorerPanel

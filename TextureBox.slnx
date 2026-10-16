@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="TextureBox.vcxproj" />
+  <Project Path="TextureBox.vcxproj" Id="f86adb60-e6a2-44fb-a665-fdfec9878729" />
 </Solution>

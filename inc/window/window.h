@@ -23,6 +23,10 @@ public:
 	explicit Window(const WindowConfig& config);
 
 	GLFWwindow* GetWindow() const { return window; }
+
+
+	void SetIcon(GLFWwindow* window); // set window icon from image file
+
 	bool ShouldClose() const;
 
 	void Update();

@@ -1,5 +1,6 @@
 #include "window/TextureExplorerPanel.h"
 #include <imgui/imgui.h>
+#include <imgui/ImGuiAF.h>
 #include <cstdint>
 
 TextureExplorerAction TextureExplorerPanel::DrawTextureExplorer(TextureDocument& doc)
@@ -30,7 +31,7 @@ TextureExplorerAction TextureExplorerPanel::DrawTextureExplorer(TextureDocument&
     }
 
     ImGui::Separator();
-    ImGui::Text("Normal Map Settings");
+    ImGui::Text(ICON_FA_COGS " Normal Map Settings");
     ImGui::SliderFloat("Strength", &doc.normalSettings.strength, 0.1f, 10.0f);
     ImGui::Checkbox("Invert Y", &doc.normalSettings.invertY);
     ImGui::Checkbox("Wrap", &doc.normalSettings.wrap);
@@ -40,6 +41,13 @@ TextureExplorerAction TextureExplorerPanel::DrawTextureExplorer(TextureDocument&
         if (doc.sourceLoaded)
             action = TextureExplorerAction::GenerateNormal;
     }
+
+    ImGui::Separator();
+	// save normal map button, disabled if normal map is not ready
+    ImGui::BeginDisabled(!doc.normalReady);
+    if (ImGui::Button("Save Normal Map..."))
+        action = TextureExplorerAction::SaveNormal;
+    ImGui::EndDisabled();
 
 
     ImGui::End();

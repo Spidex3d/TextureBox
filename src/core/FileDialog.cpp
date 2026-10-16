@@ -59,10 +59,14 @@ std::string FileDialog::OpenTexture()
     }
 }
 
-std::string FileDialog::SaveTexture()
+std::string FileDialog::SaveTexture(const std::string& defaultName)
 {
     OPENFILENAMEW ofn;
     std::vector<wchar_t> filename(MAX_PATH, L'\0');
+
+    // Pre-fill the file name box (simple ASCII-safe copy)
+    for (size_t i = 0; i < defaultName.size() && i < MAX_PATH - 1; ++i)
+        filename[i] = static_cast<wchar_t>(static_cast<unsigned char>(defaultName[i]));
 
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
@@ -70,13 +74,11 @@ std::string FileDialog::SaveTexture()
     ofn.lpstrFile = filename.data();
     ofn.nMaxFile = static_cast<DWORD>(filename.size());
 
-    static const wchar_t mbxFilter[] = L"Image Files\0*.jpg;*.jpeg;*.png;*.bmp\0"
-        L"All Files\0*.*\0\0";
-
+    static const wchar_t mbxFilter[] = L"PNG Image\0*.png\0\0";
 
     ofn.lpstrFilter = mbxFilter;
-
-    ofn.lpstrDefExt = L"jpg";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrDefExt = L"png";
 
     ofn.lpstrFileTitle = NULL;
     ofn.nMaxFileTitle = 0;

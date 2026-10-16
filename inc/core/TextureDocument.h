@@ -4,6 +4,8 @@
 #include <window/GLTexture.h>
 #include <core/NormalMap.h>
 
+ 
+
 struct TextureDocument
 {
     std::string sourcePath;
@@ -15,7 +17,9 @@ struct TextureDocument
     GLTexture sourceTex;
     GLTexture normalTex;
 
-   
+    std::string SuggestedNormalName() const;
+    
+
     
    
     NormalMapSettings normalSettings;
@@ -35,14 +39,3 @@ struct TextureDocument
     }
 };
 
-//#pragma once
-//#include <string>
-//#include <core/Image.h>
-//
-//struct TextureDocument
-//{
-//    std::string sourcePath;
-//    Image sourceImage;
-//    bool sourceLoaded = false;
-//};
-//

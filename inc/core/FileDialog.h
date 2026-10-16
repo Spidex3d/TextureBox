@@ -6,7 +6,7 @@ class FileDialog
 public:
 
 	static std::string OpenTexture();
-	static std::string SaveTexture();
+	static std::string SaveTexture(const std::string& defaultName);
 
 };
 
