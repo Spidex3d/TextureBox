@@ -13,6 +13,12 @@ uniform vec3 uLightDir;       // world-space direction (points FROM light)
 uniform float uLightIntensity;
 uniform float uAmbient;
 uniform vec3 uLightColor;
+// rim light
+uniform vec3 uViewPos;
+uniform int uUseRim;
+uniform vec3 uRimColor;
+uniform float uRimPower;
+uniform float uRimIntensity;
 
 void main()
 {
@@ -35,15 +41,23 @@ void main()
     float ambient = clamp(uAmbient, 0.0, 1.0);
     float diffuse = ndl * max(uLightIntensity, 0.0);
 
-    vec3 lit = (ambient + diffuse) * uLightColor;
+    vec3 V = normalize(uViewPos - vWorldPos);
+    float rim = 1.0 - max(dot(N, V), 0.0);
+    rim = pow(rim, max(uRimPower, 0.0001));
+    vec3 rimTerm = (uUseRim == 1) ? (uRimColor * rim * max(uRimIntensity, 0.0)) : vec3(0.0);
+
+    vec3 lit = (ambient + diffuse) * uLightColor + rimTerm;
     vec3 color = albedo * lit;
     FragColor = vec4(color, 1.0);
+
 
 //    float ambient = clamp(uAmbient, 0.0, 1.0);
 //    float diffuse = ndl * max(uLightIntensity, 0.0);
 //
-//    vec3 color = albedo * (ambient + diffuse);
+//    vec3 lit = (ambient + diffuse) * uLightColor;
+//    vec3 color = albedo * lit;
 //    FragColor = vec4(color, 1.0);
+
 }
 
 

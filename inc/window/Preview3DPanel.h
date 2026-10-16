@@ -44,9 +44,12 @@ private:
     float m_lightIntensity = 1.0f;
     float m_ambient = 0.15f;
     float m_lightColor[3] = { 1.0f, 0.98f, 0.92f }; // slightly warm white
-
+	// rim lighting controls
     bool  m_useRim = true;
     float m_rimColor[3] = { 0.35f, 0.55f, 1.0f };
     float m_rimPower = 2.5f;      // higher = thinner rim
     float m_rimIntensity = 0.35f; // strength
+	// auto-rotate controls
+    bool  m_autoRotate = true;
+    float m_autoRotateSpeed = 0.35f; // radians per second
 };

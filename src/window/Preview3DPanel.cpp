@@ -125,7 +125,6 @@ void Preview3DPanel::RenderCube(TextureDocument& doc, int w, int h)
     m_shader->Use();
     m_shader->setMat4("uMVP", mvp);
     m_shader->setMat4("uModel", model);
-    //m_shader->setVec3("uLightDir", -0.4f, -1.0f, -0.3f);
     m_shader->setVec3("uLightDir", m_lightDir[0], m_lightDir[1], m_lightDir[2]);
 
     m_shader->SetUniformFloat("uLightIntensity", m_lightIntensity);
@@ -133,7 +132,13 @@ void Preview3DPanel::RenderCube(TextureDocument& doc, int w, int h)
 
     m_shader->setVec3("uLightColor", m_lightColor[0], m_lightColor[1], m_lightColor[2]);
 
-    //m_shader->SetUniformInt("uAlbedo", 0);
+	// Rim light uniforms
+    m_shader->setVec3("uViewPos", eye.x, eye.y, eye.z);
+    m_shader->SetUniformInt("uUseRim", m_useRim ? 1 : 0);
+    m_shader->setVec3("uRimColor", m_rimColor[0], m_rimColor[1], m_rimColor[2]);
+    m_shader->SetUniformFloat("uRimPower", m_rimPower);
+    m_shader->SetUniformFloat("uRimIntensity", m_rimIntensity);
+
     m_shader->SetUniformInt("uNormalMap", 1);
     m_shader->SetUniformInt("uUseNormalMap", useNormal);
 
@@ -207,6 +212,23 @@ void Preview3DPanel::Draw(TextureDocument& doc)
     ImGui::SliderFloat("Intensity", &m_lightIntensity, 0.0f, 3.0f);
     ImGui::SliderFloat("Ambient", &m_ambient, 0.0f, 1.0f);
     ImGui::ColorEdit3("Light Color", m_lightColor);
+	// Rim light controls
+    ImGui::SeparatorText("Rim Light");
+    ImGui::Checkbox("Enable Rim", &m_useRim);
+    ImGui::BeginDisabled(!m_useRim);
+    ImGui::ColorEdit3("Rim Color", m_rimColor);
+    ImGui::SliderFloat("Rim Power", &m_rimPower, 0.5f, 8.0f);
+    ImGui::SliderFloat("Rim Intensity", &m_rimIntensity, 0.0f, 2.0f);
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText("Animation");
+    ImGui::Checkbox("Auto Rotate", &m_autoRotate);
+	ImGui::InputFloat("Rotate Speed", &m_autoRotateSpeed, 0.1f, 1.0f, "%.2f");
+
+    if (m_autoRotate)
+    {
+        m_yaw += m_autoRotateSpeed * ImGui::GetIO().DeltaTime;
+    }
 
     // normalize direction so lighting stays stable
     float len = std::sqrt(
