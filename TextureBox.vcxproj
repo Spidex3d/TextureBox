@@ -154,6 +154,7 @@
     <ClCompile Include="src\window\GLTexture.cpp" />
     <ClCompile Include="src\window\mainMenuBar.cpp" />
     <ClCompile Include="src\window\ImGuiLayer.cpp" />
+    <ClCompile Include="src\window\NodeEditorPanel .cpp" />
     <ClCompile Include="src\window\Preview3DPanel.cpp" />
     <ClCompile Include="src\window\TextureExplorerPanel.cpp" />
     <ClCompile Include="src\window\TextureViewport.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="inc\window\mainMenuBar.h" />
     <ClInclude Include="inc\miniBoxLog.h" />
     <ClInclude Include="inc\window\ImGuiLayer.h" />
+    <ClInclude Include="inc\window\NodeEditorPanel.h" />
     <ClInclude Include="inc\window\Preview3DPanel.h" />
     <ClInclude Include="inc\window\TextureExplorerPanel.h" />
     <ClInclude Include="inc\window\TextureViewport.h" />

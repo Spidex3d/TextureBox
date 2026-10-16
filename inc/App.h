@@ -5,6 +5,7 @@
 #include <window/TextureViewport.h>
 #include <window/TextureExplorerPanel.h>
 #include <window/Preview3DPanel.h>
+#include <window\NodeEditorPanel.h>
 #include <core/TextureDocument.h>
 
 
@@ -36,6 +37,7 @@ private:
 	std::unique_ptr<TextureViewport> m_imgScene; // Texture viewport panel for ImGui
 	std::unique_ptr<TextureExplorerPanel> m_imgExplorer; // Texture explorer panel for ImGui
 	std::unique_ptr<Preview3DPanel> m_preview3D;
+	std::unique_ptr<NodeEditorPanel> m_nodeEditor;
 
 	bool m_isRunning = false;	// Flag to indicate if the application is running
 

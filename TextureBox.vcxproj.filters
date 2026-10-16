@@ -84,6 +84,9 @@
     <ClCompile Include="src\core\Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\window\NodeEditorPanel .cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\App.h">
@@ -159,6 +162,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="inc\core\Shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\window\NodeEditorPanel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

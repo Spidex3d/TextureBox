@@ -35,6 +35,7 @@ bool App::Init()
 	m_imgScene = std::make_unique<TextureViewport>();
 	m_imgExplorer = std::make_unique<TextureExplorerPanel>();
 	m_preview3D = std::make_unique<Preview3DPanel>();
+	m_nodeEditor = std::make_unique<NodeEditorPanel>();
 	m_preview3D->Initialize();
 	m_imgui->SetEnableDocking(true);
 
@@ -121,6 +122,7 @@ int App::Run()
 		}
 		// Draw 3D preview
 		m_preview3D->Draw(m_doc);
+		m_nodeEditor->Draw();
 
 		if (explorerAction == TextureExplorerAction::SaveNormal)
 			HandleMenuAction(MenuAction::SaveTexture);
