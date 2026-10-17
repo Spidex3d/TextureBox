@@ -2,6 +2,10 @@
 //#include <imgui/imgui_internal.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <core/FileDialog.h>
+
+#include <Windows.h>
 
 const char* NodeEditorPanel::NodeTypeName(NodeType t)
 {
@@ -12,6 +16,7 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     case NodeType::Noise: return "Noise";
     case NodeType::Blend: return "Blend";
     case NodeType::HeightToNormal: return "HeightToNormal";
+    case NodeType::Image: return "Image";
     default: return "Node";
     }
 }
@@ -20,19 +25,52 @@ void NodeEditorPanel::EnsureBootstrapped()
 {
     if (!m_nodes.empty()) return;
 
-    int brick = NewNode(NodeType::Brick, ImVec2(60, 80));
-    int h2n = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
-    int out = NewNode(NodeType::Output, ImVec2(640, 110));
+    const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
+    const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
+    const int outId = NewNode(NodeType::Output, ImVec2(640, 110));
 
-    // auto-connect Brick -> HeightToNormal -> Output
-    int brickOut = m_nodes[0].outputs[0].id;
-    int h2nIn = m_nodes[1].inputs[0].id;
-    int h2nOut = m_nodes[1].outputs[0].id;
-    int outIn = m_nodes[2].inputs[0].id;
+    Node* image = FindNode(imageId);
+    Node* h2n = FindNode(h2nId);
+    Node* out = FindNode(outId);
 
-    TryCreateLink(brickOut, h2nIn);
-    TryCreateLink(h2nOut, outIn);
+    if (!image || !h2n || !out) return;
+    if (image->outputs.empty()) return;
+    if (h2n->inputs.empty() || h2n->outputs.empty()) return;
+    if (out->inputs.size() < 2) return;
+
+    TryCreateLink(image->outputs[0].id, h2n->inputs[0].id); // Image -> H2N
+    TryCreateLink(image->outputs[0].id, out->inputs[0].id); // Image -> Albedo
+    TryCreateLink(h2n->outputs[0].id, out->inputs[1].id);  // Normal -> Output.Normal
 }
+
+//void NodeEditorPanel::EnsureBootstrapped()
+//{
+//    if (!m_nodes.empty()) return;
+//
+//    const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
+//    const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
+//    const int outId = NewNode(NodeType::Output, ImVec2(640, 110));
+//
+//    Node* image = FindNode(imageId);
+//    Node* h2n = FindNode(h2nId);
+//    Node* out = FindNode(outId);
+//
+//    if (!image || !h2n || !out) return;
+//    if (image->outputs.empty()) return;
+//    if (h2n->inputs.empty() || h2n->outputs.empty()) return;
+//    if (out->inputs.size() < 2) return; // needs Albedo + Normal
+//
+//    const int imageOut = image->outputs[0].id;
+//    const int h2nIn = h2n->inputs[0].id;
+//    const int h2nOut = h2n->outputs[0].id;
+//    const int outAlbIn = out->inputs[0].id;
+//    const int outNrmIn = out->inputs[1].id;
+//
+//    TryCreateLink(imageOut, h2nIn);    // Image -> H2N
+//    TryCreateLink(imageOut, outAlbIn); // Image -> Output Albedo
+//    TryCreateLink(h2nOut, outNrmIn);   // H2N -> Output Normal
+//}
+
 
 int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 {
@@ -44,7 +82,8 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 
     switch (type)
     {
-    case NodeType::Output:         n.size = ImVec2(190, 95);  break;
+    case NodeType::Output:         n.size = ImVec2(190, 110);  break;
+	case NodeType::Image:          n.size = ImVec2(220, 120); break;
     case NodeType::Brick:          n.size = ImVec2(220, 150); break;
     case NodeType::Noise:          n.size = ImVec2(220, 135); break;
     case NodeType::Blend:          n.size = ImVec2(220, 145); break;
@@ -73,7 +112,11 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
     switch (n.type)
     {
     case NodeType::Output:
-        addIn("Surface");
+        addIn("Albedo");
+        addIn("Normal");
+        break;
+    case NodeType::Image:
+        addOut("Image");
         break;
     case NodeType::Brick:
         addOut("Height");
@@ -90,6 +133,89 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("Height");
         addOut("Normal");
         break;
+
+    
+    
+    }
+}
+
+const NodeEditorPanel::Node* NodeEditorPanel::FindUpstream(int inputPinId) const
+{
+    for (const auto& l : m_links)
+    {
+        if (l.toPinId != inputPinId) continue;
+        for (const auto& n : m_nodes)
+            for (const auto& p : n.outputs)
+                if (p.id == l.fromPinId) return &n;
+    }
+    return nullptr;
+}
+
+void NodeEditorPanel::Evaluate(TextureDocument& doc)
+{
+    // find first Output node
+    const Node* out = nullptr;
+    for (const auto& n : m_nodes)
+        if (n.type == NodeType::Output) { out = &n; break; }
+
+    if (!out || out->inputs.size() < 2) return;
+
+    /*if (!out) { OutputDebugStringA("Evaluate: no Output node\n"); return; }
+    if (out->inputs.size() < 2)
+    {
+        OutputDebugStringA(("Evaluate: Output inputs = " + std::to_string(out->inputs.size()) + "\n").c_str());
+        return;
+    }*/
+
+    if (!out)
+    {
+        const int newOutId = NewNode(NodeType::Output, ImVec2(640, 110));
+        out = FindNode(newOutId);
+        if (!out || out->inputs.size() < 2) return;
+    }
+
+    // Albedo input
+    const Node* albedoSrc = FindUpstream(out->inputs[0].id);
+    const Node* normalNode = FindUpstream(out->inputs[1].id);
+
+    // 1) Load albedo image if connected
+    if (albedoSrc && albedoSrc->type == NodeType::Image && albedoSrc->path[0] != '\0')
+    {
+        doc.LoadSource(albedoSrc->path);
+    }
+
+    // 2) Generate normal if Output.Normal is fed by HeightToNormal <- Image
+    if (normalNode && normalNode->type == NodeType::HeightToNormal && !normalNode->inputs.empty())
+    {
+        const Node* heightSrc = FindUpstream(normalNode->inputs[0].id);
+        if (heightSrc && heightSrc->type == NodeType::Image && heightSrc->path[0] != '\0')
+        {
+            // if height image differs from albedo image, load that before generating normal
+            if (!albedoSrc || strcmp(heightSrc->path, albedoSrc->path) != 0)
+                doc.LoadSource(heightSrc->path);
+
+            if (doc.sourceLoaded)
+            {
+                // Apply node strength to document settings
+                doc.normalSettings.strength = normalNode->f0;
+
+                // TODO: call your existing normal build function here.
+                // Replace this with whatever your app currently uses, e.g.:
+                // BuildNormalMap(doc.sourceImage, doc.normalSettings, doc.normalImage);
+                // doc.normalReady = doc.normalTex.Upload(doc.normalImage);
+
+                if (doc.sourceLoaded)
+                {
+                    // apply node strength to the document settings
+                    doc.normalSettings.strength = normalNode->f0;
+
+                    // generate and upload the normal map
+                    doc.normalImage = GenerateNormalMap(doc.sourceImage, doc.normalSettings);
+                    doc.normalTex.Destroy();
+                    doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+                }
+            }
+        }
     }
 }
 
@@ -237,11 +363,7 @@ void NodeEditorPanel::DrawLinks(ImDrawList* dl, const ImVec2& origin)
             }
         }
 
-        /*if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-        {
-            RemoveLink(l.id);
-            break;
-        }*/
+        
     }
 }
 
@@ -311,6 +433,17 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         break;
     case NodeType::Output:
         ImGui::TextDisabled("Final material output");
+        
+        break;
+    case NodeType::Image:
+        ImGui::InputText("Path", n.path, sizeof(n.path));
+        ImGui::SameLine();
+        if (ImGui::Button("Browse"))
+        {
+            const std::string picked = FileDialog::OpenTexture();
+            if (!picked.empty())
+                strncpy_s(n.path, sizeof(n.path), picked.c_str(), _TRUNCATE);
+        }
         break;
     }
 }
@@ -394,13 +527,17 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
     }
 }
 
-void NodeEditorPanel::Draw()
+void NodeEditorPanel::Draw(TextureDocument& doc)
 {
     EnsureBootstrapped();
 
     ImGui::Begin("Node Editor");
 
     // top bar
+    
+    if (ImGui::Button("Add Image"))
+        NewNode(NodeType::Image, ImVec2(80.0f - m_panning.x, 380.0f - m_panning.y));
+    ImGui::SameLine();
     if (ImGui::Button("Add Brick"))
         NewNode(NodeType::Brick, ImVec2(80.0f - m_panning.x, 80.0f - m_panning.y));
     ImGui::SameLine();
@@ -415,6 +552,10 @@ void NodeEditorPanel::Draw()
     ImGui::SameLine();
     if (ImGui::Button("Add Output"))
         NewNode(NodeType::Output, ImVec2(80.0f - m_panning.x, 320.0f - m_panning.y));
+    ImGui::SameLine();
+    if (ImGui::Button("Evaluate"))
+        Evaluate(doc);
+    
     
    
     ImGui::Separator();

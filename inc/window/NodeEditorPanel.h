@@ -10,7 +10,7 @@
 class NodeEditorPanel
 {
 public:
-    void Draw();
+    void Draw(TextureDocument& doc);
 
 private:
     enum class NodeType
@@ -46,6 +46,8 @@ private:
         ImVec2 pos = ImVec2(0, 0);
         ImVec2 size = ImVec2(180, 110);
 
+        char path[260] = {};
+
         std::vector<Pin> inputs;
         std::vector<Pin> outputs;
 
@@ -78,6 +80,8 @@ private:
     int NewNode(NodeType type, const ImVec2& pos);
     void BuildPinsForNode(Node& n);
     
+    void Evaluate(TextureDocument& doc);
+    const Node* FindUpstream(int inputPinId) const;
 
     // drawing
     void DrawGrid(ImDrawList* dl, const ImVec2& canvasPos, const ImVec2& canvasSize);

@@ -122,7 +122,7 @@ int App::Run()
 		}
 		// Draw 3D preview
 		m_preview3D->Draw(m_doc);
-		m_nodeEditor->Draw();
+		m_nodeEditor->Draw(m_doc);
 
 		if (explorerAction == TextureExplorerAction::SaveNormal)
 			HandleMenuAction(MenuAction::SaveTexture);
