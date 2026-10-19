@@ -111,6 +111,7 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
 
     switch (n.type)
     {
+        // we need to have load at start up
     case NodeType::Output:
         addIn("Albedo");
         addIn("Normal");
