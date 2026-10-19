@@ -143,11 +143,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
+    <ClCompile Include="src\core\AOMap.cpp" />
     <ClCompile Include="src\core\FileDialog.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\core\image.cpp" />
+    <ClCompile Include="src\core\material\BrickMaterial.cpp" />
     <ClCompile Include="src\core\NormalMap.cpp" />
+    <ClCompile Include="src\core\Roughness.cpp" />
     <ClCompile Include="src\core\Shader.cpp" />
     <ClCompile Include="src\core\TextureDocument.cpp" />
     <ClCompile Include="src\helper.cpp" />
@@ -169,8 +172,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\App.h" />
+    <ClInclude Include="inc\core\AOMap.h" />
     <ClInclude Include="inc\core\FileDialog.h" />
+    <ClInclude Include="inc\core\material\BrickMaterial.h" />
     <ClInclude Include="inc\core\NormalMap.h" />
+    <ClInclude Include="inc\core\Roughness.h" />
     <ClInclude Include="inc\core\Shader.h" />
     <ClInclude Include="inc\core\TextureDocument.h" />
     <ClInclude Include="inc\helper.h" />

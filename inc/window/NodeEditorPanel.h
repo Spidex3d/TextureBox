@@ -18,9 +18,20 @@ private:
         Output,
         Image,
         Brick,
+		Metal,
+		Glass,
+		Wood,
+		Color,
         Noise,
         Blend,
-        HeightToNormal
+        HeightToNormal,
+        Roughness,
+        AO,
+		Matallic,
+		Emission,
+		Transparency,
+		Depth,
+		Size
     };
 
     struct Pin
@@ -56,7 +67,12 @@ private:
         float f1 = 0.5f;
         int i0 = 4;
         int i1 = 4;
+
+        //brick node color
+        float col[3] = { 0.6f, 0.22f, 0.15f };
     };
+
+    
 
 private:
     // graph data
@@ -73,6 +89,8 @@ private:
     int m_nextLinkId = 1;
 
     std::optional<int> m_pendingFromPin; // output pin being dragged
+
+  
 
 private:
     // construction

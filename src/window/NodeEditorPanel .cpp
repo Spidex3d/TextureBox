@@ -5,6 +5,11 @@
 #include <cstring>
 #include <core/FileDialog.h>
 
+#include "core/material/BrickMaterial.h"
+//#include "core/material/MetalMaterial.h"
+//#include "core/material/GlassMaterial.h"
+//#include "core/material/ColorMaterial.h"
+
 #include <Windows.h>
 
 const char* NodeEditorPanel::NodeTypeName(NodeType t)
@@ -13,9 +18,15 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     {
     case NodeType::Output: return "Output";
     case NodeType::Brick: return "Brick";
+    case NodeType::Wood: return "Wood";
     case NodeType::Noise: return "Noise";
     case NodeType::Blend: return "Blend";
     case NodeType::HeightToNormal: return "HeightToNormal";
+    case NodeType::Roughness: return "Roughness";
+    case NodeType::Metal: return "Metal";
+    case NodeType::Glass: return "Glass";
+    case NodeType::Color: return "Color";
+    case NodeType::AO: return "AO";
     case NodeType::Image: return "Image";
     default: return "Node";
     }
@@ -27,50 +38,29 @@ void NodeEditorPanel::EnsureBootstrapped()
 
     const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
     const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
+    const int roughnessId = NewNode(NodeType::Roughness, ImVec2(340, 200));
+    const int aoId = NewNode(NodeType::AO, ImVec2(340, 300));
     const int outId = NewNode(NodeType::Output, ImVec2(640, 110));
 
     Node* image = FindNode(imageId);
     Node* h2n = FindNode(h2nId);
+    Node* roughness = FindNode(roughnessId);
+    Node* ao = FindNode(aoId);
     Node* out = FindNode(outId);
 
-    if (!image || !h2n || !out) return;
+    if (!image || !h2n || !roughness || !ao || !out) return;
     if (image->outputs.empty()) return;
     if (h2n->inputs.empty() || h2n->outputs.empty()) return;
+    if (roughness->inputs.empty() || roughness->outputs.empty()) return;
+    if (ao->inputs.empty() || ao->outputs.empty()) return;
     if (out->inputs.size() < 2) return;
 
     TryCreateLink(image->outputs[0].id, h2n->inputs[0].id); // Image -> H2N
     TryCreateLink(image->outputs[0].id, out->inputs[0].id); // Image -> Albedo
     TryCreateLink(h2n->outputs[0].id, out->inputs[1].id);  // Normal -> Output.Normal
+    TryCreateLink(roughness->outputs[0].id, out->inputs[2].id);  // Roughness -> Output.Roughness
+    TryCreateLink(image->outputs[0].id, ao->inputs[0].id);        // Image -> AO}
 }
-
-//void NodeEditorPanel::EnsureBootstrapped()
-//{
-//    if (!m_nodes.empty()) return;
-//
-//    const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
-//    const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
-//    const int outId = NewNode(NodeType::Output, ImVec2(640, 110));
-//
-//    Node* image = FindNode(imageId);
-//    Node* h2n = FindNode(h2nId);
-//    Node* out = FindNode(outId);
-//
-//    if (!image || !h2n || !out) return;
-//    if (image->outputs.empty()) return;
-//    if (h2n->inputs.empty() || h2n->outputs.empty()) return;
-//    if (out->inputs.size() < 2) return; // needs Albedo + Normal
-//
-//    const int imageOut = image->outputs[0].id;
-//    const int h2nIn = h2n->inputs[0].id;
-//    const int h2nOut = h2n->outputs[0].id;
-//    const int outAlbIn = out->inputs[0].id;
-//    const int outNrmIn = out->inputs[1].id;
-//
-//    TryCreateLink(imageOut, h2nIn);    // Image -> H2N
-//    TryCreateLink(imageOut, outAlbIn); // Image -> Output Albedo
-//    TryCreateLink(h2nOut, outNrmIn);   // H2N -> Output Normal
-//}
-
 
 int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 {
@@ -83,17 +73,27 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
     switch (type)
     {
     case NodeType::Output:         n.size = ImVec2(190, 110);  break;
-	case NodeType::Image:          n.size = ImVec2(220, 120); break;
-    case NodeType::Brick:          n.size = ImVec2(220, 150); break;
-    case NodeType::Noise:          n.size = ImVec2(220, 135); break;
-    case NodeType::Blend:          n.size = ImVec2(220, 145); break;
-    case NodeType::HeightToNormal: n.size = ImVec2(220, 130); break;
+    case NodeType::Image:          n.size = ImVec2(220, 120);  break;
+    case NodeType::Brick:          n.size = ImVec2(220, 170);  break;
+    case NodeType::Wood:           n.size = ImVec2(220, 120);  break;
+    case NodeType::Noise:          n.size = ImVec2(220, 135);  break;
+    case NodeType::Blend:          n.size = ImVec2(220, 145);  break;
+    case NodeType::HeightToNormal: n.size = ImVec2(220, 130);  break;
+    case NodeType::Roughness:      n.size = ImVec2(220, 130);  break;
+    case NodeType::AO:             n.size = ImVec2(220, 130);  break;
+	case NodeType::Metal:          n.size = ImVec2(220, 130);  break;
+	case NodeType::Glass:          n.size = ImVec2(220, 130);  break;
+	case NodeType::Color:          n.size = ImVec2(220, 60);  break;
+
     }
+       
+    if (type == NodeType::AO) { n.f0 = 1.5f; n.i0 = 0; }
 
     BuildPinsForNode(n);
     m_nodes.push_back(n);
     return n.id;
 }
+
 
 void NodeEditorPanel::BuildPinsForNode(Node& n)
 {
@@ -114,14 +114,30 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
     case NodeType::Output:
         addIn("Albedo");
         addIn("Normal");
+		addIn("Roughness");
+        addIn("AO");
         break;
     case NodeType::Image:
         addOut("Image");
         break;
     case NodeType::Brick:
-        addOut("Height");
+        addIn("Brick Color");
+        addIn("Mortar Color");
+        addOut("Material");
+        break;
+    case NodeType::Wood:
+        addOut("Value");
         break;
     case NodeType::Noise:
+        addOut("Value");
+        break;
+    case NodeType::Metal:
+        addOut("Value");
+        break;
+    case NodeType::Glass:
+        addOut("Value");
+        break;
+    case NodeType::Color:
         addOut("Value");
         break;
     case NodeType::Blend:
@@ -133,8 +149,14 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("Height");
         addOut("Normal");
         break;
-
-    
+	case NodeType::Roughness:
+		addIn("Image");
+		addOut("Roughness");
+		break;
+    case NodeType::AO:
+        addIn("Image");
+        addOut("AO");
+        break;
     
     }
 }
@@ -177,6 +199,7 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
     // Albedo input
     const Node* albedoSrc = FindUpstream(out->inputs[0].id);
     const Node* normalNode = FindUpstream(out->inputs[1].id);
+	//const Node* roughnessNode = FindUpstream(out->inputs[2].id);    
 
     // 1) Load albedo image if connected
     if (albedoSrc && albedoSrc->type == NodeType::Image && albedoSrc->path[0] != '\0')
@@ -217,6 +240,112 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             }
         }
     }
+
+    // 3) Roughness: Output.Roughness <- Roughness <- Image
+    if (out->inputs.size() >= 3)
+    {
+        const Node* roughNode = FindUpstream(out->inputs[2].id);
+        if (roughNode && roughNode->type == NodeType::Roughness && !roughNode->inputs.empty())
+        {
+            const Node* src = FindUpstream(roughNode->inputs[0].id);
+            if (src && src->type == NodeType::Image && src->path[0] != '\0')
+            {
+                // LoadSource wipes normal + roughness, so only reload if needed
+                if (doc.sourcePath != src->path || !doc.sourceLoaded)
+                    doc.LoadSource(src->path);
+
+                if (doc.sourceLoaded)
+                {
+                    doc.roughnessSettings.strength = roughNode->f0;
+                    doc.roughnessSettings.invertY = roughNode->i0 != 0;
+
+                    doc.roughnessImage = GenerateRoughnessMap(doc.sourceImage, doc.roughnessSettings);
+                    doc.roughnessTex.Destroy();
+                    doc.roughnessReady = doc.roughnessImage.IsValid() && doc.roughnessTex.Upload(doc.roughnessImage);
+                }
+            }
+        }
+    }
+
+    // 4) AO: Output.AO <- AO <- Image
+    if (out->inputs.size() >= 4)
+    {
+        const Node* aoNode = FindUpstream(out->inputs[3].id);
+        if (aoNode && aoNode->type == NodeType::AO && !aoNode->inputs.empty())
+        {
+            const Node* src = FindUpstream(aoNode->inputs[0].id);
+            if (src && src->type == NodeType::Image && src->path[0] != '\0')
+            {
+                if (doc.sourcePath != src->path || !doc.sourceLoaded)
+                    doc.LoadSource(src->path);
+
+                if (doc.sourceLoaded)
+                {
+                    AOSettings s;
+                    s.strength = aoNode->f0;
+                    s.invert = (aoNode->i0 != 0);
+
+                    doc.aoImage = GenerateAOMap(doc.sourceImage, s);
+                    doc.aoTex.Destroy();
+                    doc.aoReady = doc.aoImage.IsValid() && doc.aoTex.Upload(doc.aoImage);
+                }
+            }
+        }
+    }
+
+
+    // -----------------------------------------------------------
+    // in Evaluate(), before the image-based blocks
+	// check for a Brick node connected to Output.Albedo
+	// -----------------------------------------------------------
+    //const Node* albedoSrc = FindUpstream(out->inputs[0].id);
+    if (albedoSrc && albedoSrc->type == NodeType::Brick)
+    {
+        BrickSettings bs;
+        bs.cols = albedoSrc->i0;   // the Cols / Rows sliders you already have
+        bs.rows = albedoSrc->i1;
+       
+        // -------------------------------- default colors --------------------------
+       
+        auto readColor = [&](int pinIndex, float* dst)
+        {
+            if ((int)albedoSrc->inputs.size() <= pinIndex) return;
+            const Node* c = FindUpstream(albedoSrc->inputs[pinIndex].id);
+            if (c && c->type == NodeType::Color)
+            {
+                dst[0] = c->col[0];
+                dst[1] = c->col[1];
+                dst[2] = c->col[2];
+            }
+        };
+
+        readColor(0, bs.brickColor);
+        readColor(1, bs.mortarColor);
+
+
+		// ----------------------------- end default colors --------------------------
+
+        BrickMaps maps = GenerateBrickMaps(bs);
+
+        doc.sourceImage = maps.albedo;
+        doc.sourceTex.Destroy();
+        doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+        doc.normalSettings.strength = 4.0f;
+        doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+        doc.normalTex.Destroy();
+        doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+        doc.roughnessImage = maps.roughness;
+        doc.roughnessTex.Destroy();
+        doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+        return;
+    }
+
+
+
+
+
 }
 
 NodeEditorPanel::Node* NodeEditorPanel::FindNode(int nodeId)
@@ -351,19 +480,28 @@ void NodeEditorPanel::DrawLinks(ImDrawList* dl, const ImVec2& origin)
         // interaction hit-box for delete (coarse midpoint test)
         ImVec2 mid((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f);
         ImGui::SetCursorScreenPos(ImVec2(mid.x - 8, mid.y - 8));
-        ImGui::InvisibleButton(("link_" + std::to_string(l.id)).c_str(), ImVec2(16, 16));
 
-        if (ImGui::IsItemHovered())
+        // hit test: distance from mouse to sampled bezier points
+        const ImVec2 mp = ImGui::GetIO().MousePos;
+        bool hit = false;
+        for (int s = 0; s <= 24 && !hit; ++s)
         {
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) ||
-                (ImGui::GetIO().KeyAlt && ImGui::IsMouseClicked(ImGuiMouseButton_Left)))
-            {
-                RemoveLink(l.id);
-                break;
-            }
+            const float t = s / 24.0f, u = 1.0f - t;
+            ImVec2 q(
+                u * u * u * p1.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p2.x,
+                u * u * u * p1.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p2.y);
+            const float dx = q.x - mp.x, dy = q.y - mp.y;
+            hit = (dx * dx + dy * dy) < 36.0f; // 6px radius
         }
 
-        
+        if (hit && ImGui::IsWindowHovered() &&
+            (ImGui::IsMouseClicked(ImGuiMouseButton_Right) ||
+                (ImGui::GetIO().KeyAlt && ImGui::IsMouseClicked(ImGuiMouseButton_Left))))
+        {
+            RemoveLink(l.id);
+            break;
+        }
+
     }
 }
 
@@ -418,19 +556,50 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
     switch (n.type)
     {
     case NodeType::Brick:
-        ImGui::SliderInt("Cols", &n.i0, 1, 32);
-        ImGui::SliderInt("Rows", &n.i1, 1, 32);
+		ImGui::InputInt("Cols", &n.i0, 1, 32);
+        ImGui::InputInt("Rows", &n.i1, 1, 32);
         break;
+	case NodeType::Wood:
+		ImGui::InputFloat("Rings", &n.f0, 1.0f, 32.0f);
+		ImGui::InputFloat("Noise", &n.f1, 0.0f, 1.0f);
+		break;
     case NodeType::Noise:
         ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
         ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
         break;
+	case NodeType::Metal:
+		ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
+		ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
+		break;
+	case NodeType::Glass:
+		ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
+		ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
+		break;
+	case NodeType::Color:
+		ImGui::ColorEdit3("Color", n.col);
+		break;
     case NodeType::Blend:
         ImGui::SliderFloat("Mix", &n.f0, 0.0f, 1.0f);
         break;
     case NodeType::HeightToNormal:
         ImGui::SliderFloat("Strength", &n.f0, 0.1f, 16.0f);
         break;
+	
+    case NodeType::Roughness:
+        ImGui::SliderFloat("Contrast", &n.f0, 0.1f, 4.0f);
+        {
+            bool inv = n.i0 != 0;
+            if (ImGui::Checkbox("Invert", &inv)) n.i0 = inv ? 1 : 0;
+        }
+        break;
+    case NodeType::AO:
+        ImGui::SliderFloat("AO", &n.f0, 0.1f, 4.0f);
+        {
+            bool inv = n.i0 != 0;
+            if (ImGui::Checkbox("Invert", &inv)) n.i0 = inv ? 1 : 0;
+        }
+        break;
+
     case NodeType::Output:
         ImGui::TextDisabled("Final material output");
         
@@ -541,14 +710,27 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
     if (ImGui::Button("Add Brick"))
         NewNode(NodeType::Brick, ImVec2(80.0f - m_panning.x, 80.0f - m_panning.y));
     ImGui::SameLine();
+    if (ImGui::Button("Add Wood"))
+        NewNode(NodeType::Wood, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
+    ImGui::SameLine();
     if (ImGui::Button("Add Noise"))
         NewNode(NodeType::Noise, ImVec2(80.0f - m_panning.x, 140.0f - m_panning.y));
+    ImGui::SameLine();
+	if (ImGui::Button("Add Color"))
+		NewNode(NodeType::Color, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+    
     ImGui::SameLine();
     if (ImGui::Button("Add Blend"))
         NewNode(NodeType::Blend, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
     ImGui::SameLine();
     if (ImGui::Button("Add HeightToNormal"))
         NewNode(NodeType::HeightToNormal, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+    ImGui::SameLine();
+    if (ImGui::Button("Add Roughness"))
+        NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 300.0f - m_panning.y));
+    ImGui::SameLine();
+    if (ImGui::Button("Add AO"))
+        NewNode(NodeType::AO, ImVec2(80.0f - m_panning.x, 340.0f - m_panning.y));
     ImGui::SameLine();
     if (ImGui::Button("Add Output"))
         NewNode(NodeType::Output, ImVec2(80.0f - m_panning.x, 320.0f - m_panning.y));

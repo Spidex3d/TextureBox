@@ -1,0 +1,5 @@
+Box Texture
+
+To use the editor
+To delete a link alt right click the output or input node
+To delete a Node select the nodes title bar and press delete. 
