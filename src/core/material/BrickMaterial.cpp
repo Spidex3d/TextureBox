@@ -58,13 +58,15 @@ BrickMaps GenerateBrickMaps(const BrickSettings& s)
             float id = Hash(col, row);
             float shade = 1.0f + (id - 0.5f) * 2.0f * s.variation;
 
-            float br = s.brickColor[0] * shade, bg = s.brickColor[1] * shade, bb = s.brickColor[2] * shade;
+            //float br = s.brickColor[0] * shade, bg = s.brickColor[1] * shade, bb = s.brickColor[2] * shade;
             float mr = s.mortarColor[0], mg = s.mortarColor[1], mb = s.mortarColor[2];
 
-            // colours
-            // float br = 0.60f * shade, bg = 0.22f * shade, bb = 0.15f * shade;
-            // mortar
-            //float mr = 0.55f, mg = 0.53f, mb = 0.50f;
+			// random per-brick variation
+            
+            float br = std::clamp(s.brickColor[0] * shade, 0.0f, 1.0f);
+            float bg = std::clamp(s.brickColor[1] * shade, 0.0f, 1.0f);
+            float bb = std::clamp(s.brickColor[2] * shade, 0.0f, 1.0f);
+			// end random variation
 
             const int i = y * W + x;
             Put(m.albedo, i,

@@ -12,8 +12,7 @@ struct BrickSettings
 
     float brickColor[3] = { 0.60f, 0.22f, 0.15f };
     float mortarColor[3] = { 0.55f, 0.53f, 0.50f };
-    float variation = 0.25f; // 0..1 random tint per brick
-
+    
 };
 
 struct BrickMaps

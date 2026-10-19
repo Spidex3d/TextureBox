@@ -15,24 +15,45 @@ public:
 private:
     enum class NodeType
     {
+        // Special
         Output,
+
+        // Inputs / Sources
         Image,
-        Brick,
-		Metal,
-		Glass,
-		Wood,
-		Color,
+        Color,
+        Random,
+
+        // Material Generators
+		Material,
+        //Brick,
+        //Metal,
+        //Glass,
+        //Wood,
+
+        // Modifiers
         Noise,
         Blend,
+        Depth,
+        Size,
+
+        // Map Generators / Converters
         HeightToNormal,
         Roughness,
         AO,
-		Matallic,
-		Emission,
-		Transparency,
-		Depth,
-		Size
+        Metallic,
+        Emission,
+        Transparency
     };
+
+    enum class MaterialKind
+    {
+        Brick = 0,
+        Metal,
+        Wood,
+        Glass,
+        Plastic
+    };
+
 
     struct Pin
     {
@@ -70,6 +91,8 @@ private:
 
         //brick node color
         float col[3] = { 0.6f, 0.22f, 0.15f };
+
+        int materialKind = (int)MaterialKind::Brick; // default
     };
 
     

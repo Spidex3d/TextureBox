@@ -1,5 +1,4 @@
 #include "window/NodeEditorPanel.h"
-//#include <imgui/imgui_internal.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -17,17 +16,15 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     switch (t)
     {
     case NodeType::Output: return "Output";
-    case NodeType::Brick: return "Brick";
-    case NodeType::Wood: return "Wood";
     case NodeType::Noise: return "Noise";
     case NodeType::Blend: return "Blend";
     case NodeType::HeightToNormal: return "HeightToNormal";
     case NodeType::Roughness: return "Roughness";
-    case NodeType::Metal: return "Metal";
-    case NodeType::Glass: return "Glass";
     case NodeType::Color: return "Color";
     case NodeType::AO: return "AO";
     case NodeType::Image: return "Image";
+    case NodeType::Material: return "Material";
+    case NodeType::Random: return "Random";
     default: return "Node";
     }
 }
@@ -37,6 +34,7 @@ void NodeEditorPanel::EnsureBootstrapped()
     if (!m_nodes.empty()) return;
 
     const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
+    
     const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
     const int roughnessId = NewNode(NodeType::Roughness, ImVec2(340, 200));
     const int aoId = NewNode(NodeType::AO, ImVec2(340, 300));
@@ -70,19 +68,21 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
     n.name = NodeTypeName(type);
     n.pos = pos;
 
+    //---------------------------------------------------------------
+	// set default size based on node type
+	// ---------------------------------------------------------------
     switch (type)
     {
     case NodeType::Output:         n.size = ImVec2(190, 110);  break;
     case NodeType::Image:          n.size = ImVec2(220, 120);  break;
-    case NodeType::Brick:          n.size = ImVec2(220, 170);  break;
-    case NodeType::Wood:           n.size = ImVec2(220, 120);  break;
+    case NodeType::Material:       n.size = ImVec2(220, 120);  break;
+    case NodeType::Random:         n.size = ImVec2(220, 120);  break;
     case NodeType::Noise:          n.size = ImVec2(220, 135);  break;
     case NodeType::Blend:          n.size = ImVec2(220, 145);  break;
     case NodeType::HeightToNormal: n.size = ImVec2(220, 130);  break;
     case NodeType::Roughness:      n.size = ImVec2(220, 130);  break;
     case NodeType::AO:             n.size = ImVec2(220, 130);  break;
-	case NodeType::Metal:          n.size = ImVec2(220, 130);  break;
-	case NodeType::Glass:          n.size = ImVec2(220, 130);  break;
+	
 	case NodeType::Color:          n.size = ImVec2(220, 60);  break;
 
     }
@@ -118,25 +118,19 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("AO");
         break;
     case NodeType::Image:
-        addOut("Image");
+        addOut("out");
         break;
-    case NodeType::Brick:
-        addIn("Brick Color");
-        addIn("Mortar Color");
-        addOut("Material");
+    case NodeType::Material:
+        addOut("out");
         break;
-    case NodeType::Wood:
+    case NodeType::Random:
         addOut("Value");
         break;
+    
     case NodeType::Noise:
         addOut("Value");
         break;
-    case NodeType::Metal:
-        addOut("Value");
-        break;
-    case NodeType::Glass:
-        addOut("Value");
-        break;
+    
     case NodeType::Color:
         addOut("Value");
         break;
@@ -182,13 +176,7 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
 
     if (!out || out->inputs.size() < 2) return;
 
-    /*if (!out) { OutputDebugStringA("Evaluate: no Output node\n"); return; }
-    if (out->inputs.size() < 2)
-    {
-        OutputDebugStringA(("Evaluate: Output inputs = " + std::to_string(out->inputs.size()) + "\n").c_str());
-        return;
-    }*/
-
+    
     if (!out)
     {
         const int newOutId = NewNode(NodeType::Output, ImVec2(640, 110));
@@ -298,53 +286,33 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
     // in Evaluate(), before the image-based blocks
 	// check for a Brick node connected to Output.Albedo
 	// -----------------------------------------------------------
-    //const Node* albedoSrc = FindUpstream(out->inputs[0].id);
-    if (albedoSrc && albedoSrc->type == NodeType::Brick)
+   
+
+    if (albedoSrc && albedoSrc->type == NodeType::Material)
     {
-        BrickSettings bs;
-        bs.cols = albedoSrc->i0;   // the Cols / Rows sliders you already have
-        bs.rows = albedoSrc->i1;
-       
-        // -------------------------------- default colors --------------------------
-       
-        auto readColor = [&](int pinIndex, float* dst)
+        if ((MaterialKind)albedoSrc->materialKind == MaterialKind::Brick)
         {
-            if ((int)albedoSrc->inputs.size() <= pinIndex) return;
-            const Node* c = FindUpstream(albedoSrc->inputs[pinIndex].id);
-            if (c && c->type == NodeType::Color)
-            {
-                dst[0] = c->col[0];
-                dst[1] = c->col[1];
-                dst[2] = c->col[2];
-            }
-        };
+            BrickSettings bs;   // defaults: 4x4 is set below
+            bs.cols = 4;
+            bs.rows = 4;
 
-        readColor(0, bs.brickColor);
-        readColor(1, bs.mortarColor);
+            BrickMaps maps = GenerateBrickMaps(bs);
 
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
 
-		// ----------------------------- end default colors --------------------------
+            doc.normalSettings.strength = 4.0f;
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
 
-        BrickMaps maps = GenerateBrickMaps(bs);
-
-        doc.sourceImage = maps.albedo;
-        doc.sourceTex.Destroy();
-        doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
-
-        doc.normalSettings.strength = 4.0f;
-        doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
-        doc.normalTex.Destroy();
-        doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
-
-        doc.roughnessImage = maps.roughness;
-        doc.roughnessTex.Destroy();
-        doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+        }
         return;
     }
-
-
-
-
 
 }
 
@@ -553,28 +521,24 @@ void NodeEditorPanel::RemoveNode(int nodeId)
 }
 void NodeEditorPanel::DrawNodeContents(Node& n)
 {
+	// used to load a base material type, which will then be used to generate the final material output
+    //const char* items[] = { "Select Material",  "Brick", "Wood", "Metal", "Plastic"};
+        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic" };
+
     switch (n.type)
     {
-    case NodeType::Brick:
-		ImGui::InputInt("Cols", &n.i0, 1, 32);
-        ImGui::InputInt("Rows", &n.i1, 1, 32);
+    case NodeType::Material:
+    {
+        ImGui::SetNextItemWidth(n.size.x - 40.0f);
+        ImGui::Combo("##kind", &n.materialKind, kinds, IM_ARRAYSIZE(kinds));
         break;
-	case NodeType::Wood:
-		ImGui::InputFloat("Rings", &n.f0, 1.0f, 32.0f);
-		ImGui::InputFloat("Noise", &n.f1, 0.0f, 1.0f);
-		break;
+    }
+	
     case NodeType::Noise:
         ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
         ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
         break;
-	case NodeType::Metal:
-		ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
-		ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
-		break;
-	case NodeType::Glass:
-		ImGui::SliderFloat("Scale", &n.f0, 0.01f, 8.0f);
-		ImGui::SliderFloat("Bias", &n.f1, -1.0f, 1.0f);
-		break;
+	
 	case NodeType::Color:
 		ImGui::ColorEdit3("Color", n.col);
 		break;
@@ -621,6 +585,8 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
 {
     for (auto& n : m_nodes)
     {
+
+
         ImVec2 p = ImVec2(origin.x + n.pos.x, origin.y + n.pos.y);
         ImVec2 p2 = ImVec2(p.x + n.size.x, p.y + n.size.y);
 
@@ -664,6 +630,10 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
         const float pinR = 5.0f;
         for (auto& pin : n.inputs)
         {
+
+            
+
+
             ImVec2 pp = GetPinScreenPos(pin, origin);
             dl->AddCircleFilled(pp, pinR, IM_COL32(150, 170, 220, 255));
 
@@ -704,34 +674,6 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 
     // top bar
     
-    if (ImGui::Button("Add Image"))
-        NewNode(NodeType::Image, ImVec2(80.0f - m_panning.x, 380.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add Brick"))
-        NewNode(NodeType::Brick, ImVec2(80.0f - m_panning.x, 80.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add Wood"))
-        NewNode(NodeType::Wood, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add Noise"))
-        NewNode(NodeType::Noise, ImVec2(80.0f - m_panning.x, 140.0f - m_panning.y));
-    ImGui::SameLine();
-	if (ImGui::Button("Add Color"))
-		NewNode(NodeType::Color, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
-    
-    ImGui::SameLine();
-    if (ImGui::Button("Add Blend"))
-        NewNode(NodeType::Blend, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add HeightToNormal"))
-        NewNode(NodeType::HeightToNormal, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add Roughness"))
-        NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 300.0f - m_panning.y));
-    ImGui::SameLine();
-    if (ImGui::Button("Add AO"))
-        NewNode(NodeType::AO, ImVec2(80.0f - m_panning.x, 340.0f - m_panning.y));
-    ImGui::SameLine();
     if (ImGui::Button("Add Output"))
         NewNode(NodeType::Output, ImVec2(80.0f - m_panning.x, 320.0f - m_panning.y));
     ImGui::SameLine();
@@ -757,6 +699,83 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
     const bool canvasHovered = ImGui::IsItemHovered();
     const bool canvasActive = ImGui::IsItemActive();
 
+    // --------------------------------------------------------------------------------------------------------
+	// right-click to open context menu
+	// --------------------------------------------------------------------------------------------------------
+
+	if (canvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+	{
+		ImGui::OpenPopup("node_canvas_context");
+	}
+
+    if (ImGui::BeginPopup("node_canvas_context", ImGuiWindowFlags_None))
+    {
+
+        if (ImGui::BeginMenu("Add Material")) {
+            
+            if (ImGui::MenuItem("Add Image")) {
+               // NewNode(NodeType::Image, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Image, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Material")) {
+                NewNode(NodeType::Material, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
+            }
+            ImGui::EndMenu();
+        }
+
+		if (ImGui::BeginMenu("Add Modifier")) {
+
+			if (ImGui::MenuItem("Add Color")) {
+				//NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Color, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+            if (ImGui::MenuItem("Add Noise")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Noise, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Size")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Size, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add AO")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::AO, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Blend")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Blend, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Color")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Depth, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Emission")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Emission, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Normal")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::HeightToNormal, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Color")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            if (ImGui::MenuItem("Add Matallic")) {
+                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+                NewNode(NodeType::Metallic, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+
+
+
+
+			ImGui::EndMenu();
+		}
+
+        ImGui::EndPopup();
+    }
+
+	// ---------------------------------------------------- End context menu ----------------------------------------------------
     
 
     // pan with middle mouse drag
