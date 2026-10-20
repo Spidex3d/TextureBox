@@ -1,6 +1,7 @@
 #include "window/TextureExplorerPanel.h"
 #include <imgui/imgui.h>
 #include <imgui/ImGuiAF.h>
+#include <core/FileDialog.h>
 #include <cstdint>
 
 TextureExplorerAction TextureExplorerPanel::DrawTextureExplorer(TextureDocument& doc)
@@ -36,20 +37,16 @@ TextureExplorerAction TextureExplorerPanel::DrawTextureExplorer(TextureDocument&
     ImGui::Checkbox("Invert Y", &doc.normalSettings.invertY);
     ImGui::Checkbox("Wrap", &doc.normalSettings.wrap);
 
-    if (ImGui::Button("Generate Normal"))
-    {
-        if (doc.sourceLoaded)
-            action = TextureExplorerAction::GenerateNormal;
-    }
+    
 
-    ImGui::Separator();
-	// save normal map button, disabled if normal map is not ready
-    ImGui::BeginDisabled(!doc.normalReady);
-    if (ImGui::Button("Save Normal Map..."))
-        action = TextureExplorerAction::SaveNormal;
+    // ########################
+    
+    const bool canExport = doc.sourceLoaded || doc.normalReady || doc.roughnessReady;
+    ImGui::BeginDisabled(!canExport);
+    if (ImGui::Button("Export Material Set..."))
+        action = TextureExplorerAction::ExportMaterialSet;
     ImGui::EndDisabled();
-
-
+    
     ImGui::End();
     return action;
 }

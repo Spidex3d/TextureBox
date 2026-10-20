@@ -4,8 +4,32 @@
 #include <window/window.h>
 #include <core\FileDialog.h>
 #include <core/NormalMap.h>
+#include <fstream>
+#include <filesystem>
 
 struct GLFWwindow;
+
+namespace
+{
+	bool SaveImageWithDialog(const Image& img, const std::string& defaultName, const char* label)
+	{
+		std::string path = FileDialog::SaveTexture(defaultName);
+		if (path.empty()) return false; // user cancelled
+
+		if (path.size() < 4 || path.substr(path.size() - 4) != ".png")
+			path += ".png";
+
+		if (!img.SavePNG(path))
+		{
+			BOX_LOG_ERROR("Failed to save {}: {}", label, path);
+			return false;
+		}
+
+		BOX_LOG_INFO("{} saved: {} ({} x {})", label, path, img.width, img.height);
+		return true;
+	}
+}
+
 
 App::App() = default;
 App::~App() = default;
@@ -106,26 +130,81 @@ int App::Run()
 			}
 		}
 
+		// #################################### New save Bit ############################
 		
-		if (explorerAction == TextureExplorerAction::GenerateNormal)
+		if (explorerAction == TextureExplorerAction::ExportMaterialSet)
 		{
-			if (m_doc.sourceLoaded)
+			// Ask once for base filename (e.g. "brick01.png")
+			std::string basePath = FileDialog::SaveTexture(m_doc.BaseName() + ".png");
+			if (!basePath.empty())
 			{
-				m_doc.normalImage = GenerateNormalMap(m_doc.sourceImage, m_doc.normalSettings);
-				m_doc.normalReady = m_doc.normalTex.Upload(m_doc.normalImage);
+				// Ensure .png exists
+				if (basePath.size() < 4 || basePath.substr(basePath.size() - 4) != ".png")
+					basePath += ".png";
 
-				if (!m_doc.normalReady)
-					BOX_LOG_ERROR("Failed to upload generated normal map texture");
+				// Split to: folder + stem
+				std::string folder = basePath;
+				std::string file = basePath;
+
+				size_t slash = basePath.find_last_of("/\\");
+				if (slash != std::string::npos)
+				{
+					folder = basePath.substr(0, slash + 1);
+					file = basePath.substr(slash + 1);
+				}
 				else
-					BOX_LOG_INFO("Normal map generated");
+				{
+					folder = "";
+					file = basePath;
+				}
+
+				size_t dot = file.find_last_of('.');
+				std::string stem = (dot == std::string::npos) ? file : file.substr(0, dot);
+
+				auto saveOne = [&](bool ready, const Image& img, const std::string& suffix, const char* label)
+				{
+					if (!ready) return;
+					std::string out = folder + stem + "_" + suffix + ".png";
+					if (!img.SavePNG(out))
+						BOX_LOG_ERROR("Failed to save {}: {}", label, out);
+					else
+						BOX_LOG_INFO("{} saved: {} ({} x {})", label, out, img.width, img.height);
+				};
+
+				saveOne(m_doc.sourceLoaded, m_doc.sourceImage, "albedo", "Albedo");
+				saveOne(m_doc.normalReady, m_doc.normalImage, "normal", "Normal");
+				saveOne(m_doc.roughnessReady, m_doc.roughnessImage, "roughness", "Roughness");
+
+				// Write .mat sidecar next to textures
+				std::string matPath = folder + stem + ".mat";
+				std::ofstream mat(matPath, std::ios::out | std::ios::trunc);
+				if (!mat)
+				{
+					BOX_LOG_ERROR("Failed to write material file: {}", matPath);
+				}
+				else
+				{
+					mat << "name=" << stem << "\n";
+					if (m_doc.sourceLoaded)   mat << "albedo=" << stem << "_albedo.png\n";
+					if (m_doc.normalReady)    mat << "normal=" << stem << "_normal.png\n";
+					if (m_doc.roughnessReady) mat << "roughness=" << stem << "_roughness.png\n";
+					mat << "version=1\n";
+					mat.close();
+
+					BOX_LOG_INFO("Material file saved: {}", matPath);
+				}
+				
 			}
+
+			
 		}
+		
+
+		// ################################# end New Bit ###########################
+
 		// Draw 3D preview
 		m_preview3D->Draw(m_doc);
 		m_nodeEditor->Draw(m_doc);
-
-		if (explorerAction == TextureExplorerAction::SaveNormal)
-			HandleMenuAction(MenuAction::SaveTexture);
 
 		m_imgui->RenderImGui();
 		glfwSwapBuffers(nativeWindow);
@@ -183,6 +262,8 @@ void App::HandleMenuAction(MenuAction action)
 		}
 		break;
 	}
+
+	
 
 	case MenuAction::Exit:
 		glfwSetWindowShouldClose(m_window->GetWindow(), GLFW_TRUE);

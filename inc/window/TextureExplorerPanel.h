@@ -6,7 +6,10 @@ enum class TextureExplorerAction
     None,
     OpenFileDialog,
     GenerateNormal,
-    SaveNormal
+	SaveAlbedo,
+    SaveNormal,
+    SaveRoughness,
+    ExportMaterialSet
 };
 
 class TextureExplorerPanel

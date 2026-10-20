@@ -17,6 +17,7 @@ private:
     {
         // Special
         Output,
+        Albedo,
 
         // Inputs / Sources
         Image,
@@ -25,11 +26,7 @@ private:
 
         // Material Generators
 		Material,
-        //Brick,
-        //Metal,
-        //Glass,
-        //Wood,
-
+        
         // Modifiers
         Noise,
         Blend,
@@ -53,6 +50,15 @@ private:
         Glass,
         Plastic
     };
+    enum class PinKind
+    {
+        Material,   // chain data (Material -> Size -> Color -> Random -> Output.Albedo)
+        Image,      // bitmap/map data
+        Scalar,     // single float/int (future)
+        Color,      // RGB (future)
+        Albedo,
+        Surface 
+    };
 
 
     struct Pin
@@ -61,6 +67,7 @@ private:
         int nodeId = 0;
         bool isInput = true;
         std::string name;
+        PinKind kind = PinKind::Material;
     };
 
     struct Link
@@ -79,6 +86,8 @@ private:
         ImVec2 size = ImVec2(180, 110);
 
         char path[260] = {};
+
+        char matName[64] = "Brick";
 
         std::vector<Pin> inputs;
         std::vector<Pin> outputs;
@@ -123,7 +132,7 @@ private:
     
     void Evaluate(TextureDocument& doc);
     const Node* FindUpstream(int inputPinId) const;
-
+    const Node* ResolveAlbedoSource(const Node* n) const;
     // drawing
     void DrawGrid(ImDrawList* dl, const ImVec2& canvasPos, const ImVec2& canvasSize);
     void DrawLinks(ImDrawList* dl, const ImVec2& origin);
@@ -138,13 +147,12 @@ private:
     bool CanCreateLink(int fromPinId, int toPinId) const;
     void TryCreateLink(int fromPinId, int toPinId);
     void RemoveLink(int linkId);
+    static ImU32 PinColor(PinKind k, bool isInput);
 
     // UI per node
     void DrawNodeContents(Node& n);
 
-   
-
     // utility
     static const char* NodeTypeName(NodeType t);
-
+   
 };

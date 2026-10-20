@@ -11,6 +11,9 @@
 
 #include <Windows.h>
 
+
+
+
 const char* NodeEditorPanel::NodeTypeName(NodeType t)
 {
     switch (t)
@@ -21,6 +24,9 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     case NodeType::HeightToNormal: return "HeightToNormal";
     case NodeType::Roughness: return "Roughness";
     case NodeType::Color: return "Color";
+    case NodeType::Albedo: return "Albedo";
+	case NodeType::Depth: return "Depth";
+	case NodeType::Size: return "Size";
     case NodeType::AO: return "AO";
     case NodeType::Image: return "Image";
     case NodeType::Material: return "Material";
@@ -33,31 +39,8 @@ void NodeEditorPanel::EnsureBootstrapped()
 {
     if (!m_nodes.empty()) return;
 
-    const int imageId = NewNode(NodeType::Image, ImVec2(40, 80));
-    
-    const int h2nId = NewNode(NodeType::HeightToNormal, ImVec2(340, 90));
-    const int roughnessId = NewNode(NodeType::Roughness, ImVec2(340, 200));
-    const int aoId = NewNode(NodeType::AO, ImVec2(340, 300));
-    const int outId = NewNode(NodeType::Output, ImVec2(640, 110));
+    NewNode(NodeType::Output, ImVec2(400, 120));
 
-    Node* image = FindNode(imageId);
-    Node* h2n = FindNode(h2nId);
-    Node* roughness = FindNode(roughnessId);
-    Node* ao = FindNode(aoId);
-    Node* out = FindNode(outId);
-
-    if (!image || !h2n || !roughness || !ao || !out) return;
-    if (image->outputs.empty()) return;
-    if (h2n->inputs.empty() || h2n->outputs.empty()) return;
-    if (roughness->inputs.empty() || roughness->outputs.empty()) return;
-    if (ao->inputs.empty() || ao->outputs.empty()) return;
-    if (out->inputs.size() < 2) return;
-
-    TryCreateLink(image->outputs[0].id, h2n->inputs[0].id); // Image -> H2N
-    TryCreateLink(image->outputs[0].id, out->inputs[0].id); // Image -> Albedo
-    TryCreateLink(h2n->outputs[0].id, out->inputs[1].id);  // Normal -> Output.Normal
-    TryCreateLink(roughness->outputs[0].id, out->inputs[2].id);  // Roughness -> Output.Roughness
-    TryCreateLink(image->outputs[0].id, ao->inputs[0].id);        // Image -> AO}
 }
 
 int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
@@ -73,17 +56,19 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 	// ---------------------------------------------------------------
     switch (type)
     {
-    case NodeType::Output:         n.size = ImVec2(190, 110);  break;
-    case NodeType::Image:          n.size = ImVec2(220, 120);  break;
-    case NodeType::Material:       n.size = ImVec2(220, 120);  break;
-    case NodeType::Random:         n.size = ImVec2(220, 120);  break;
-    case NodeType::Noise:          n.size = ImVec2(220, 135);  break;
-    case NodeType::Blend:          n.size = ImVec2(220, 145);  break;
-    case NodeType::HeightToNormal: n.size = ImVec2(220, 130);  break;
-    case NodeType::Roughness:      n.size = ImVec2(220, 130);  break;
-    case NodeType::AO:             n.size = ImVec2(220, 130);  break;
-	
-	case NodeType::Color:          n.size = ImVec2(220, 60);  break;
+    case NodeType::Output:         n.size = ImVec2(190, 150);  break;
+    case NodeType::Image:          n.size = ImVec2(200, 120);  break;
+    case NodeType::Material:       n.size = ImVec2(200, 120);  break;
+    case NodeType::Random:         n.size = ImVec2(200, 80);  break;
+    case NodeType::Noise:          n.size = ImVec2(200, 80);  break;
+    case NodeType::Blend:          n.size = ImVec2(200, 80);  break;
+    case NodeType::Albedo:         n.size = ImVec2(80, 80);  break;
+    case NodeType::HeightToNormal: n.size = ImVec2(200, 90);  break;
+    case NodeType::Roughness:      n.size = ImVec2(200, 90);  break;
+    case NodeType::AO:             n.size = ImVec2(200, 90);  break;
+	case NodeType::Color:          n.size = ImVec2(200, 70);  break;
+	case NodeType::Depth:          n.size = ImVec2(200, 80);  break;
+	case NodeType::Size:           n.size = ImVec2(200, 80);  break;
 
     }
        
@@ -99,58 +84,87 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
 {
     n.inputs.clear();
     n.outputs.clear();
-
-    auto addIn = [&](const char* name) {
-        Pin p; p.id = m_nextPinId++; p.nodeId = n.id; p.isInput = true; p.name = name;
+    //##
+    auto addIn = [&](const char* name, PinKind kind) {
+        Pin p; p.id = m_nextPinId++; p.nodeId = n.id; p.isInput = true; p.name = name; p.kind = kind;
         n.inputs.push_back(p);
     };
-    auto addOut = [&](const char* name) {
-        Pin p; p.id = m_nextPinId++; p.nodeId = n.id; p.isInput = false; p.name = name;
+    auto addOut = [&](const char* name, PinKind kind) {
+        Pin p; p.id = m_nextPinId++; p.nodeId = n.id; p.isInput = false; p.name = name; p.kind = kind;
         n.outputs.push_back(p);
     };
-
+    
     switch (n.type)
     {
         // we need to have load at start up
     case NodeType::Output:
-        addIn("Albedo");
-        addIn("Normal");
-		addIn("Roughness");
-        addIn("AO");
+        
+        addIn("Albedo", PinKind::Surface);
+        //addIn("Albedo", PinKind::Image);
+        addIn("Normal", PinKind::Image);
+		addIn("Roughness", PinKind::Image);
+        addIn("AO", PinKind::Image);
+        break;
+    case NodeType::Albedo:
+		addIn("Img", PinKind::Image);
+        addIn("Mat ", PinKind::Material);
+		addOut("out", PinKind::Surface);
         break;
     case NodeType::Image:
-        addOut("out");
+        addOut("out", PinKind::Image);
         break;
     case NodeType::Material:
-        addOut("out");
+        addOut("out", PinKind::Material);
         break;
+        
     case NodeType::Random:
-        addOut("Value");
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
         break;
+    /*case NodeType::Random:
+        addIn("in", PinKind::Scalar);
+        addOut("out", PinKind::Scalar);
+        break;*/
     
     case NodeType::Noise:
-        addOut("Value");
+        addOut("Value", PinKind::Scalar);
         break;
-    
     case NodeType::Color:
-        addOut("Value");
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
         break;
+    /*case NodeType::Color:
+		addIn("in", PinKind::Color);
+        addOut("out", PinKind::Color);
+        break;*/
     case NodeType::Blend:
-        addIn("A");
-        addIn("B");
-        addOut("Out");
+        addIn("A", PinKind::Material);
+        addIn("B", PinKind::Material);
+        addOut("Out", PinKind::Material);
         break;
+	case NodeType::Depth:   
+		addIn("in", PinKind::Scalar);
+        addOut("out", PinKind::Scalar);
+        break;
+    case NodeType::Size:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+	/*case NodeType::Size:    
+		addIn("in", PinKind::Scalar);
+        addOut("out", PinKind::Scalar);
+        break;*/
     case NodeType::HeightToNormal:
-        addIn("Height");
-        addOut("Normal");
+        addIn("Height", PinKind::Image);
+        addOut("Normal", PinKind::Image);
         break;
 	case NodeType::Roughness:
-		addIn("Image");
-		addOut("Roughness");
+		addIn("Image", PinKind::Image);
+		addOut("Roughness", PinKind::Image);
 		break;
     case NodeType::AO:
-        addIn("Image");
-        addOut("AO");
+        addIn("Image", PinKind::Image);
+        addOut("AO", PinKind::Image);
         break;
     
     }
@@ -166,6 +180,18 @@ const NodeEditorPanel::Node* NodeEditorPanel::FindUpstream(int inputPinId) const
                 if (p.id == l.fromPinId) return &n;
     }
     return nullptr;
+}
+
+const NodeEditorPanel::Node* NodeEditorPanel::ResolveAlbedoSource(const Node* n) const
+{
+    // Albedo node: look through to Material (preferred) or Image
+    if (n && n->type == NodeType::Albedo && n->inputs.size() >= 2)
+    {
+        const Node* viaMaterial = FindUpstream(n->inputs[0].id);
+        const Node* viaImage = FindUpstream(n->inputs[1].id);
+        return viaMaterial ? viaMaterial : viaImage;
+    }
+    return n; // already a direct source
 }
 
 void NodeEditorPanel::Evaluate(TextureDocument& doc)
@@ -185,8 +211,11 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
         if (!out || out->inputs.size() < 2) return;
     }
 
+    doc.materialName = out->matName;
+
     // Albedo input
-    const Node* albedoSrc = FindUpstream(out->inputs[0].id);
+    //const Node* albedoSrc = FindUpstream(out->inputs[0].id);
+    const Node* albedoSrc = ResolveAlbedoSource(FindUpstream(out->inputs[0].id));
     const Node* normalNode = FindUpstream(out->inputs[1].id);
 	//const Node* roughnessNode = FindUpstream(out->inputs[2].id);    
 
@@ -288,14 +317,49 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
 	// check for a Brick node connected to Output.Albedo
 	// -----------------------------------------------------------
    
-
-    if (albedoSrc && albedoSrc->type == NodeType::Material)
+    // Material chain for Output.Albedo:
+// Material -> (optional Size/Color/Random...) -> Output.Albedo
     {
-        if ((MaterialKind)albedoSrc->materialKind == MaterialKind::Brick)
+        std::vector<const Node*> chain;
+        const Node* cur = albedoSrc;
+
+        // walk upstream until we reach the Material node
+        for (int guard = 0; cur && cur->type != NodeType::Material && guard < 64; ++guard)
         {
-            BrickSettings bs;   // defaults: 4x4 is set below
+            chain.push_back(cur);
+            cur = cur->inputs.empty() ? nullptr : FindUpstream(cur->inputs[0].id);
+        }
+
+        // if we found a Material node, generate from it + modifiers
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Brick)
+        {
+            BrickSettings bs;
             bs.cols = 4;
             bs.rows = 4;
+
+            // apply modifiers from nearest-to-material -> nearest-to-output
+            for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+            {
+                const Node* m = *it;
+                switch (m->type)
+                {
+                case NodeType::Size:
+                    bs.cols = m->i0;
+                    bs.rows = m->i1;
+                    break;
+                case NodeType::Color:
+                    bs.brickColor[0] = m->col[0];
+                    bs.brickColor[1] = m->col[1];
+                    bs.brickColor[2] = m->col[2];
+                    break;
+                case NodeType::Random:
+                    bs.variation = m->f0;
+                    break;
+                default:
+                    break;
+                }
+            }
 
             BrickMaps maps = GenerateBrickMaps(bs);
 
@@ -311,8 +375,9 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.roughnessImage = maps.roughness;
             doc.roughnessTex.Destroy();
             doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            return; // done for material chain path
         }
-        return;
     }
 
 }
@@ -363,7 +428,7 @@ bool NodeEditorPanel::CanCreateLink(int fromPinId, int toPinId) const
     if (from->isInput) return false;
     if (!to->isInput) return false;
     if (from->nodeId == to->nodeId) return false;
-
+    if (from->kind != to->kind) return false;
     // one connection per input pin
     for (const auto& l : m_links)
         if (l.toPinId == toPinId) return false;
@@ -378,6 +443,33 @@ bool NodeEditorPanel::CanCreateLink(int fromPinId, int toPinId) const
 void NodeEditorPanel::TryCreateLink(int fromPinId, int toPinId)
 {
     if (!CanCreateLink(fromPinId, toPinId)) return;
+
+    Pin* to = FindPin(toPinId);
+    if (!to) return;
+
+    Node* toNode = FindNode(to->nodeId);
+    if (!toNode) return;
+
+    // Special rule: Albedo node has two alternative inputs (Material/Image).
+    // When one is connected, remove any link on the other.
+    if (toNode->type == NodeType::Albedo && toNode->inputs.size() >= 2)
+    {
+        const int materialIn = toNode->inputs[0].id; // "Material"
+        const int imageIn = toNode->inputs[1].id; // "Image"
+
+        int otherInput = -1;
+        if (toPinId == materialIn) otherInput = imageIn;
+        else if (toPinId == imageIn) otherInput = materialIn;
+
+        if (otherInput != -1)
+        {
+            m_links.erase(
+                std::remove_if(m_links.begin(), m_links.end(),
+                    [&](const Link& l) { return l.toPinId == otherInput; }),
+                m_links.end());
+        }
+    }
+
     Link l;
     l.id = m_nextLinkId++;
     l.fromPinId = fromPinId;
@@ -393,6 +485,24 @@ void NodeEditorPanel::RemoveLink(int linkId)
         m_links.end());
 }
 
+ImU32 NodeEditorPanel::PinColor(PinKind k, bool isInput)
+{
+    switch (k)
+    {
+    case PinKind::Material: return isInput ? IM_COL32(80, 170, 255, 255) : IM_COL32(80, 220, 120, 255); // blue in, green out
+    case PinKind::Image:    return isInput ? IM_COL32(255, 90, 90, 255) : IM_COL32(255, 170, 60, 255); // red in, orange out
+    case PinKind::Scalar:   return isInput ? IM_COL32(190, 120, 255, 255) : IM_COL32(210, 160, 255, 255);
+    case PinKind::Color:    return isInput ? IM_COL32(255, 120, 220, 255) : IM_COL32(255, 180, 235, 255);
+    }
+    return IM_COL32(200, 200, 200, 255);
+}
+
+static float PinTopPad(int nodeType, int outputNodeType)
+{
+    // Output node: leave room for the Name box, then pins start lower
+    return (nodeType == outputNodeType) ? 62.0f : 30.0f;
+}
+
 ImVec2 NodeEditorPanel::GetPinScreenPos(const Pin& pin, const ImVec2& origin) const
 {
     // pin layout rule:
@@ -401,7 +511,8 @@ ImVec2 NodeEditorPanel::GetPinScreenPos(const Pin& pin, const ImVec2& origin) co
     for (const auto& n : m_nodes) if (n.id == pin.nodeId) { node = &n; break; }
     if (!node) return origin;
 
-    const float topPad = 30.0f;
+    const float topPad = (node->type == NodeType::Output) ? 62.0f : 30.0f;
+    //const float topPad = 30.0f;
     const float step = 22.0f;
 
     if (pin.isInput)
@@ -541,16 +652,39 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         break;
 	
 	case NodeType::Color:
+		ImGui::Spacing();
+		ImGui::Spacing();
 		ImGui::ColorEdit3("Color", n.col);
 		break;
     case NodeType::Blend:
+        ImGui::Spacing();
+        ImGui::Spacing();
         ImGui::SliderFloat("Mix", &n.f0, 0.0f, 1.0f);
         break;
-    case NodeType::HeightToNormal:
+	case NodeType::Depth:
+        ImGui::Spacing();
+        ImGui::Spacing();
+		ImGui::SliderFloat("Depth", &n.f0, 0.0f, 1.0f);
+		break;
+	case NodeType::Size: 
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::InputInt("Cols", &n.i0, 1, 32);
+        ImGui::InputInt("Rows", &n.i1, 1, 32);
+		break;
+	case NodeType::Random:
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::SliderFloat("Variation", &n.f0, 0.0f, 1.0f);
+		break;
+    case NodeType::HeightToNormal:ImGui::Spacing();
+        ImGui::Spacing();
         ImGui::SliderFloat("Strength", &n.f0, 0.1f, 16.0f);
         break;
 	
     case NodeType::Roughness:
+        ImGui::Spacing();
+        ImGui::Spacing();
         ImGui::SliderFloat("Contrast", &n.f0, 0.1f, 4.0f);
         {
             bool inv = n.i0 != 0;
@@ -558,18 +692,27 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         }
         break;
     case NodeType::AO:
+        ImGui::Spacing();
+        ImGui::Spacing();
         ImGui::SliderFloat("AO", &n.f0, 0.1f, 4.0f);
         {
             bool inv = n.i0 != 0;
             if (ImGui::Checkbox("Invert", &inv)) n.i0 = inv ? 1 : 0;
         }
         break;
-
     case NodeType::Output:
+        ImGui::SetNextItemWidth(n.size.x - 60.0f);
+        ImGui::InputText("Name", n.matName, sizeof(n.matName));
+        break;
+    /*case NodeType::Output:
         ImGui::TextDisabled("Final material output");
-        
+        break;*/
+	case NodeType::Albedo:
+        ImGui::TextDisabled("Albedo input");
         break;
     case NodeType::Image:
+        ImGui::Spacing();
+        ImGui::Spacing();
         ImGui::InputText("Path", n.path, sizeof(n.path));
         ImGui::SameLine();
         if (ImGui::Button("Browse"))
@@ -592,6 +735,8 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
         ImVec2 p2 = ImVec2(p.x + n.size.x, p.y + n.size.y);
 
         // node body
+
+
         dl->AddRectFilled(p, p2, IM_COL32(52, 52, 60, 240), 8.0f);
         dl->AddRect(p, p2, IM_COL32(95, 95, 110, 255), 8.0f, 0, 1.5f);
 
@@ -636,7 +781,8 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
 
 
             ImVec2 pp = GetPinScreenPos(pin, origin);
-            dl->AddCircleFilled(pp, pinR, IM_COL32(150, 170, 220, 255));
+            dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, true));
+            //dl->AddCircleFilled(pp, pinR, IM_COL32(150, 170, 220, 255));
 
             ImGui::SetCursorScreenPos(ImVec2(pp.x - 8, pp.y - 8));
             ImGui::InvisibleButton(("pin_in_" + std::to_string(pin.id)).c_str(), ImVec2(16, 16));
@@ -653,7 +799,8 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
         for (auto& pin : n.outputs)
         {
             ImVec2 pp = GetPinScreenPos(pin, origin);
-            dl->AddCircleFilled(pp, pinR, IM_COL32(220, 180, 120, 255));
+            dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, false));
+            //dl->AddCircleFilled(pp, pinR, IM_COL32(220, 180, 120, 255));
 
             ImGui::SetCursorScreenPos(ImVec2(pp.x - 8, pp.y - 8));
             ImGui::InvisibleButton(("pin_out_" + std::to_string(pin.id)).c_str(), ImVec2(16, 16));
@@ -715,7 +862,6 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
         if (ImGui::BeginMenu("Add Material")) {
             
             if (ImGui::MenuItem("Add Image")) {
-               // NewNode(NodeType::Image, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Image, ImVec2(80.0f - m_panning.x, 200.0f - m_panning.y));
             }
             if (ImGui::MenuItem("Add Material")) {
@@ -726,44 +872,40 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 
 		if (ImGui::BeginMenu("Add Modifier")) {
 
+            if (ImGui::MenuItem("Add Albedo")) {
+                NewNode(NodeType::Albedo, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
 			if (ImGui::MenuItem("Add Color")) {
-				//NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Color, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
 			}
             if (ImGui::MenuItem("Add Noise")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Noise, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
             if (ImGui::MenuItem("Add Size")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Size, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
+            if (ImGui::MenuItem("Add Random")) {
+                NewNode(NodeType::Random, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
             if (ImGui::MenuItem("Add AO")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::AO, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
             if (ImGui::MenuItem("Add Blend")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Blend, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
-            if (ImGui::MenuItem("Add Color")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+            if (ImGui::MenuItem("Add Depth")) {
                 NewNode(NodeType::Depth, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
             if (ImGui::MenuItem("Add Emission")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::Emission, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
             if (ImGui::MenuItem("Add Normal")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
                 NewNode(NodeType::HeightToNormal, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
-            if (ImGui::MenuItem("Add Color")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+            if (ImGui::MenuItem("Add Roughness")) {
                 NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
-            if (ImGui::MenuItem("Add Matallic")) {
-                //NewNode(NodeType::Color, ImVec2(ImGui::GetIO().MousePos.x - m_panning.x, ImGui::GetIO().MousePos.y - m_panning.y));
+            if (ImGui::MenuItem("Add Metallic")) {
                 NewNode(NodeType::Metallic, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
 
