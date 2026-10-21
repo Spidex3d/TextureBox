@@ -39,6 +39,8 @@ private:
     float m_modelScale = 0.35f;
 	GLuint m_defaultTex = 0;
 
+    float m_specBoost = 1.0f; // preview-only multiplier
+
     // lighting controls
     float m_lightDir[3] = { -0.4f, -1.0f, -0.3f };
     float m_lightIntensity = 1.0f;

@@ -33,6 +33,12 @@ private:
         Blend,
         Depth,
         Size,
+        Bevel,
+        EdgeSoften,
+        FacePitting,
+        Shininess,
+        Planks,
+        Rings,
 
         // Map Generators / Converters
         HeightToNormal,

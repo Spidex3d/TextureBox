@@ -1,5 +1,7 @@
 #pragma once
-#include <core/Image.h>
+#include <core/image.h>
+#include <core\Helper.h>
+
 
 struct BrickSettings
 {
@@ -13,14 +15,17 @@ struct BrickSettings
     float brickColor[3] = { 0.60f, 0.22f, 0.15f };
     float mortarColor[3] = { 0.55f, 0.53f, 0.50f };
     
+    float edgeSoftMul = 1.6f;
+    float pitting = 0.08f;
+    float shininess = 0.0f; // 0 = matt brick, 1 = glazed tile
 };
 
-struct BrickMaps
-{
-    Image albedo;
-    Image height;
-    Image roughness;
-    Image ao;
-};
+//struct BrickMaps
+//{
+//    Image albedo;
+//    Image height;
+//    Image roughness;
+//    Image ao;
+//};
 
-BrickMaps GenerateBrickMaps(const BrickSettings& s);
+Maps GenerateBrickMaps(const BrickSettings& s);

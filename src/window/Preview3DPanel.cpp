@@ -157,6 +157,8 @@ void Preview3DPanel::RenderCube(TextureDocument& doc, int w, int h)
 	// Ambient Occlusion
     m_shader->SetUniformInt("uAOMap", 3);
     m_shader->SetUniformInt("uUseAOMap", useAO);
+
+    m_shader->SetUniformFloat("uSpecBoost", m_specBoost); // preview - only multiplier
       
 	// Bind textures to texture units
     glActiveTexture(GL_TEXTURE0);
@@ -234,6 +236,7 @@ void Preview3DPanel::Draw(TextureDocument& doc)
     ImGui::SeparatorText("Cube scale");
     ImGui::SliderFloat("Cube Scale", &m_modelScale, 0.2f, 1.2f);
     ImGui::SeparatorText("Lighting");
+    ImGui::SliderFloat("Spec Boost", &m_specBoost, 0.0f, 4.0f);
     ImGui::SliderFloat3("Light Dir", m_lightDir, -1.0f, 1.0f);
     ImGui::SliderFloat("Intensity", &m_lightIntensity, 0.0f, 3.0f);
     ImGui::SliderFloat("Ambient", &m_ambient, 0.0f, 1.0f);
