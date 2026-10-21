@@ -45,12 +45,12 @@ struct TextureDocument
     std::string materialName;   // set by the node graph, used for export names
    
 
-    	std::string SuggestedAlbedoName() const;
+    std::string SuggestedAlbedoName() const;
     std::string SuggestedNormalName() const;
 	std::string SuggestedRoughnessName() const;
-	std::string SuggestedAOName() const;
-	std::string SuggestedDisplacementName() const;
-	std::string SuggestedSpecularName() const;
+	//std::string SuggestedAOName() const;
+	//std::string SuggestedDisplacementName() const;
+	//std::string SuggestedSpecularName() const;
     
 
     

@@ -22,6 +22,7 @@ private:
         // Inputs / Sources
         Image,
         Color,
+        MortarColor,
         Random,
 
         // Material Generators
@@ -122,7 +123,15 @@ private:
 
     std::optional<int> m_pendingFromPin; // output pin being dragged
 
+    
+
+    // zoom
+    float m_zoom = 1.0f;
+    float m_minZoom = 0.60f;
+    float m_maxZoom = 1.80f;
   
+    ImVec2 CanvasToScreen(const ImVec2& p, const ImVec2& origin) const;
+    ImVec2 ScreenToCanvas(const ImVec2& p, const ImVec2& origin) const;
 
 private:
     // construction

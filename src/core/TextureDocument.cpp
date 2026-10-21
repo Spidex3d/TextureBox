@@ -35,11 +35,11 @@
 //    return p.stem().string() + "a_displacement.png";
 //}
 
-std::string TextureDocument::SuggestedSpecularName() const
-{
-    std::filesystem::path p(sourcePath);
-    return p.stem().string() + "a_specular.png";
-}
+//std::string TextureDocument::SuggestedSpecularName() const
+//{
+//    std::filesystem::path p(sourcePath);
+//    return p.stem().string() + "a_specular.png";
+//}
 
 std::string TextureDocument::BaseName() const
 {

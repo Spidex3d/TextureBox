@@ -11,7 +11,7 @@
 
 #include <Windows.h>
 
-
+#include <imgui/imgui_internal.h>
 
 
 const char* NodeEditorPanel::NodeTypeName(NodeType t)
@@ -24,6 +24,7 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     case NodeType::HeightToNormal: return "HeightToNormal";
     case NodeType::Roughness: return "Roughness";
     case NodeType::Color: return "Color";
+    case NodeType::MortarColor: return "MortarColor";
     case NodeType::Albedo: return "Albedo";
 	case NodeType::Depth: return "Depth";
 	case NodeType::Size: return "Size";
@@ -33,6 +34,22 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     case NodeType::Random: return "Random";
     default: return "Node";
     }
+}
+// zoom and pan math
+ImVec2 NodeEditorPanel::CanvasToScreen(const ImVec2& p, const ImVec2& origin) const
+{
+    return ImVec2(
+        origin.x + (p.x + m_panning.x) * m_zoom,
+        origin.y + (p.y + m_panning.y) * m_zoom
+    );
+}
+
+ImVec2 NodeEditorPanel::ScreenToCanvas(const ImVec2& p, const ImVec2& origin) const
+{
+    return ImVec2(
+        (p.x - origin.x) / m_zoom - m_panning.x,
+        (p.y - origin.y) / m_zoom - m_panning.y
+    );
 }
 
 void NodeEditorPanel::EnsureBootstrapped()
@@ -56,7 +73,7 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 	// ---------------------------------------------------------------
     switch (type)
     {
-    case NodeType::Output:         n.size = ImVec2(190, 150);  break;
+    case NodeType::Output:         n.size = ImVec2(190, 200);  break;
     case NodeType::Image:          n.size = ImVec2(200, 120);  break;
     case NodeType::Material:       n.size = ImVec2(200, 120);  break;
     case NodeType::Random:         n.size = ImVec2(200, 80);  break;
@@ -67,6 +84,7 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
     case NodeType::Roughness:      n.size = ImVec2(200, 90);  break;
     case NodeType::AO:             n.size = ImVec2(200, 90);  break;
 	case NodeType::Color:          n.size = ImVec2(200, 70);  break;
+	case NodeType::MortarColor:     n.size = ImVec2(200, 70);  break;
 	case NodeType::Depth:          n.size = ImVec2(200, 80);  break;
 	case NodeType::Size:           n.size = ImVec2(200, 80);  break;
 
@@ -98,11 +116,11 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
     {
         // we need to have load at start up
     case NodeType::Output:
-        
         addIn("Albedo", PinKind::Surface);
-        //addIn("Albedo", PinKind::Image);
         addIn("Normal", PinKind::Image);
 		addIn("Roughness", PinKind::Image);
+		addIn("Displacement", PinKind::Image);
+		addIn("Specular", PinKind::Image);
         addIn("AO", PinKind::Image);
         break;
     case NodeType::Albedo:
@@ -121,10 +139,6 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
         break;
-    /*case NodeType::Random:
-        addIn("in", PinKind::Scalar);
-        addOut("out", PinKind::Scalar);
-        break;*/
     
     case NodeType::Noise:
         addOut("Value", PinKind::Scalar);
@@ -133,10 +147,10 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
         break;
-    /*case NodeType::Color:
-		addIn("in", PinKind::Color);
-        addOut("out", PinKind::Color);
-        break;*/
+    case NodeType::MortarColor:
+		addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
     case NodeType::Blend:
         addIn("A", PinKind::Material);
         addIn("B", PinKind::Material);
@@ -150,10 +164,7 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
         break;
-	/*case NodeType::Size:    
-		addIn("in", PinKind::Scalar);
-        addOut("out", PinKind::Scalar);
-        break;*/
+	
     case NodeType::HeightToNormal:
         addIn("Height", PinKind::Image);
         addOut("Normal", PinKind::Image);
@@ -353,6 +364,11 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
                     bs.brickColor[1] = m->col[1];
                     bs.brickColor[2] = m->col[2];
                     break;
+				case NodeType::MortarColor: 
+                    bs.mortarColor[0] = m->col[0];
+                    bs.mortarColor[1] = m->col[1];
+                    bs.mortarColor[2] = m->col[2];
+                    break;
                 case NodeType::Random:
                     bs.variation = m->f0;
                     break;
@@ -505,39 +521,86 @@ static float PinTopPad(int nodeType, int outputNodeType)
 
 ImVec2 NodeEditorPanel::GetPinScreenPos(const Pin& pin, const ImVec2& origin) const
 {
-    // pin layout rule:
-    // inputs on left, outputs on right, evenly spaced vertically in each side group
     const Node* node = nullptr;
     for (const auto& n : m_nodes) if (n.id == pin.nodeId) { node = &n; break; }
     if (!node) return origin;
 
     const float topPad = (node->type == NodeType::Output) ? 62.0f : 30.0f;
-    //const float topPad = 30.0f;
     const float step = 22.0f;
 
     if (pin.isInput)
     {
         int idx = 0;
-        for (size_t i = 0; i < node->inputs.size(); ++i) if (node->inputs[i].id == pin.id) { idx = (int)i; break; }
-        return ImVec2(origin.x + node->pos.x, origin.y + node->pos.y + topPad + idx * step);
+        for (size_t i = 0; i < node->inputs.size(); ++i)
+            if (node->inputs[i].id == pin.id) { idx = (int)i; break; }
+
+        return CanvasToScreen(ImVec2(node->pos.x, node->pos.y + topPad + idx * step), origin);
     }
     else
     {
         int idx = 0;
-        for (size_t i = 0; i < node->outputs.size(); ++i) if (node->outputs[i].id == pin.id) { idx = (int)i; break; }
-        return ImVec2(origin.x + node->pos.x + node->size.x, origin.y + node->pos.y + topPad + idx * step);
+        for (size_t i = 0; i < node->outputs.size(); ++i)
+            if (node->outputs[i].id == pin.id) { idx = (int)i; break; }
+
+        return CanvasToScreen(ImVec2(node->pos.x + node->size.x, node->pos.y + topPad + idx * step), origin);
     }
 }
+//ImVec2 NodeEditorPanel::GetPinScreenPos(const Pin& pin, const ImVec2& origin) const
+//{
+//    // pin layout rule:
+//    // inputs on left, outputs on right, evenly spaced vertically in each side group
+//    const Node* node = nullptr;
+//    for (const auto& n : m_nodes) if (n.id == pin.nodeId) { node = &n; break; }
+//    if (!node) return origin;
+//
+//    const float topPad = (node->type == NodeType::Output) ? 62.0f : 30.0f;
+//    //const float topPad = 30.0f;
+//    const float step = 22.0f;
+//
+//    if (pin.isInput)
+//    {
+//        int idx = 0;
+//        for (size_t i = 0; i < node->inputs.size(); ++i) if (node->inputs[i].id == pin.id) { idx = (int)i; break; }
+//        return ImVec2(origin.x + node->pos.x, origin.y + node->pos.y + topPad + idx * step);
+//    }
+//    else
+//    {
+//        int idx = 0;
+//        for (size_t i = 0; i < node->outputs.size(); ++i) if (node->outputs[i].id == pin.id) { idx = (int)i; break; }
+//        return ImVec2(origin.x + node->pos.x + node->size.x, origin.y + node->pos.y + topPad + idx * step);
+//    }
+//}
 
 void NodeEditorPanel::DrawGrid(ImDrawList* dl, const ImVec2& canvasPos, const ImVec2& canvasSize)
 {
-    dl->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), IM_COL32(26, 26, 30, 255));
+    dl->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
+        IM_COL32(26, 26, 30, 255));
 
-    for (float x = fmodf(m_panning.x, m_gridStep); x < canvasSize.x; x += m_gridStep)
-        dl->AddLine(ImVec2(canvasPos.x + x, canvasPos.y), ImVec2(canvasPos.x + x, canvasPos.y + canvasSize.y), IM_COL32(45, 45, 52, 255));
-    for (float y = fmodf(m_panning.y, m_gridStep); y < canvasSize.y; y += m_gridStep)
-        dl->AddLine(ImVec2(canvasPos.x, canvasPos.y + y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + y), IM_COL32(45, 45, 52, 255));
+    const float step = m_gridStep * m_zoom;
+
+    float x0 = fmodf(m_panning.x * m_zoom, step);
+    if (x0 < 0.0f) x0 += step;
+    for (float x = x0; x < canvasSize.x; x += step)
+        dl->AddLine(ImVec2(canvasPos.x + x, canvasPos.y),
+            ImVec2(canvasPos.x + x, canvasPos.y + canvasSize.y),
+            IM_COL32(45, 45, 52, 255));
+
+    float y0 = fmodf(m_panning.y * m_zoom, step);
+    if (y0 < 0.0f) y0 += step;
+    for (float y = y0; y < canvasSize.y; y += step)
+        dl->AddLine(ImVec2(canvasPos.x, canvasPos.y + y),
+            ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + y),
+            IM_COL32(45, 45, 52, 255));
 }
+//void NodeEditorPanel::DrawGrid(ImDrawList* dl, const ImVec2& canvasPos, const ImVec2& canvasSize)
+//{
+//    dl->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), IM_COL32(26, 26, 30, 255));
+//
+//    for (float x = fmodf(m_panning.x, m_gridStep); x < canvasSize.x; x += m_gridStep)
+//        dl->AddLine(ImVec2(canvasPos.x + x, canvasPos.y), ImVec2(canvasPos.x + x, canvasPos.y + canvasSize.y), IM_COL32(45, 45, 52, 255));
+//    for (float y = fmodf(m_panning.y, m_gridStep); y < canvasSize.y; y += m_gridStep)
+//        dl->AddLine(ImVec2(canvasPos.x, canvasPos.y + y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + y), IM_COL32(45, 45, 52, 255));
+//}
 
 void NodeEditorPanel::DrawLinks(ImDrawList* dl, const ImVec2& origin)
 {
@@ -641,7 +704,8 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
     {
     case NodeType::Material:
     {
-        ImGui::SetNextItemWidth(n.size.x - 40.0f);
+       // ImGui::SetNextItemWidth(n.size.x - 40.0f);
+        ImGui::SetNextItemWidth((n.size.x - 40.0f) * m_zoom);
         ImGui::Combo("##kind", &n.materialKind, kinds, IM_ARRAYSIZE(kinds));
         break;
     }
@@ -652,37 +716,57 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         break;
 	
 	case NodeType::Color:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
 		ImGui::Spacing();
 		ImGui::Spacing();
 		ImGui::ColorEdit3("Color", n.col);
 		break;
+	case NodeType::MortarColor:
+        ImGui::SetNextItemWidth((n.size.x - 90.0f) * m_zoom);
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::ColorEdit3("Mortar Color", n.col);
+		break;
     case NodeType::Blend:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::SliderFloat("Mix", &n.f0, 0.0f, 1.0f);
         break;
 	case NodeType::Depth:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
 		ImGui::SliderFloat("Depth", &n.f0, 0.0f, 1.0f);
 		break;
 	case NodeType::Size: 
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);   
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::InputInt("Cols", &n.i0, 1, 32);
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
         ImGui::InputInt("Rows", &n.i1, 1, 32);
 		break;
 	case NodeType::Random:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::SliderFloat("Variation", &n.f0, 0.0f, 1.0f);
 		break;
     case NodeType::HeightToNormal:ImGui::Spacing();
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::SliderFloat("Strength", &n.f0, 0.1f, 16.0f);
         break;
 	
     case NodeType::Roughness:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::SliderFloat("Contrast", &n.f0, 0.1f, 4.0f);
@@ -692,6 +776,8 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         }
         break;
     case NodeType::AO:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::SliderFloat("AO", &n.f0, 0.1f, 4.0f);
@@ -701,16 +787,18 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         }
         break;
     case NodeType::Output:
-        ImGui::SetNextItemWidth(n.size.x - 60.0f);
+        ImGui::SetNextItemWidth((n.size.x - 80.0f) * m_zoom);
         ImGui::InputText("Name", n.matName, sizeof(n.matName));
         break;
-    /*case NodeType::Output:
-        ImGui::TextDisabled("Final material output");
-        break;*/
+    
 	case NodeType::Albedo:
-        ImGui::TextDisabled("Albedo input");
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
+        //ImGui::TextDisabled("Albedo input");
         break;
     case NodeType::Image:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::InputText("Path", n.path, sizeof(n.path));
@@ -729,63 +817,70 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
 {
     for (auto& n : m_nodes)
     {
+        ImVec2 p = CanvasToScreen(n.pos, origin);
+        ImVec2 sz(n.size.x * m_zoom, n.size.y * m_zoom);
+        ImVec2 p2(p.x + sz.x, p.y + sz.y);
 
+        const float round = 8.0f * m_zoom;
+        const float titleH = 24.0f * m_zoom;
 
-        ImVec2 p = ImVec2(origin.x + n.pos.x, origin.y + n.pos.y);
-        ImVec2 p2 = ImVec2(p.x + n.size.x, p.y + n.size.y);
+        ImFont* font = ImGui::GetFont();
+        const float textSize = ImGui::GetFontSize() * m_zoom; // base size * zoom (computed before any scaling)
 
-        // node body
+        dl->AddRectFilled(p, p2, IM_COL32(52, 52, 60, 240), round);
+        dl->AddRect(p, p2, IM_COL32(95, 95, 110, 255), round, 0, 1.5f * m_zoom);
 
-
-        dl->AddRectFilled(p, p2, IM_COL32(52, 52, 60, 240), 8.0f);
-        dl->AddRect(p, p2, IM_COL32(95, 95, 110, 255), 8.0f, 0, 1.5f);
-
-        // title bar
-        ImVec2 t2 = ImVec2(p2.x, p.y + 24.0f);
-        dl->AddRectFilled(p, t2, IM_COL32(70, 70, 85, 255), 8.0f, ImDrawFlags_RoundCornersTop);
-        dl->AddText(ImVec2(p.x + 8, p.y + 5), IM_COL32(235, 235, 240, 255), n.name.c_str());
-
-        // draggable area
-        
-        //ImGui::SetNextItemAllowOverlap();
+        ImVec2 t2(p2.x, p.y + titleH);
+        dl->AddRectFilled(p, t2, IM_COL32(70, 70, 85, 255), round, ImDrawFlags_RoundCornersTop);
+        dl->AddText(font, textSize, ImVec2(p.x + 8.0f * m_zoom, p.y + 5.0f * m_zoom),
+            IM_COL32(235, 235, 240, 255), n.name.c_str());
 
         ImGui::SetCursorScreenPos(p);
-        ImGui::InvisibleButton(("node_drag_" + std::to_string(n.id)).c_str(), ImVec2(n.size.x, 24.0f));
+        ImGui::InvisibleButton(("node_drag_" + std::to_string(n.id)).c_str(), ImVec2(sz.x, titleH));
         if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
         {
-            n.pos.x += ImGui::GetIO().MouseDelta.x;
-            n.pos.y += ImGui::GetIO().MouseDelta.y;
+            n.pos.x += ImGui::GetIO().MouseDelta.x / m_zoom;
+            n.pos.y += ImGui::GetIO().MouseDelta.y / m_zoom;
         }
-        
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             m_selectedNodeId = n.id;
-        
-        // node UI controls
-        ImGui::SetCursorScreenPos(ImVec2(p.x + 8, p.y + 30));
+
+        // ---------- node widgets (scaled) ----------
+        ImGui::SetCursorScreenPos(ImVec2(p.x + 8.0f * m_zoom, p.y + 30.0f * m_zoom)); // <-- this was missing
         ImGui::BeginGroup();
         ImGui::PushID(n.id);
-        ImGui::PushItemWidth(n.size.x - 90.0f);
+
+        const float oldScale = ImGui::GetCurrentWindow()->FontWindowScale;
+        ImGui::SetWindowFontScale(oldScale * m_zoom);
+
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x * m_zoom, style.FramePadding.y * m_zoom));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(style.ItemSpacing.x * m_zoom, style.ItemSpacing.y * m_zoom));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(style.ItemInnerSpacing.x * m_zoom, style.ItemInnerSpacing.y * m_zoom));
+        ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style.GrabMinSize * m_zoom);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, style.FrameRounding * m_zoom);
+
+        ImGui::PushItemWidth(sz.x - 90.0f * m_zoom);
         DrawNodeContents(n);
         ImGui::PopItemWidth();
+
+        ImGui::PopStyleVar(5);
+        ImGui::SetWindowFontScale(oldScale);   // reset BEFORE drawing pins
+
         ImGui::PopID();
         ImGui::EndGroup();
-        
-        
+        // ---------- end widgets ----------
 
-        // pins + pin interactions
-        const float pinR = 5.0f;
+        const float pinR = 5.0f * m_zoom;
+        const float hit = 16.0f * m_zoom;
+
         for (auto& pin : n.inputs)
         {
-
-            
-
-
             ImVec2 pp = GetPinScreenPos(pin, origin);
             dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, true));
-            //dl->AddCircleFilled(pp, pinR, IM_COL32(150, 170, 220, 255));
 
-            ImGui::SetCursorScreenPos(ImVec2(pp.x - 8, pp.y - 8));
-            ImGui::InvisibleButton(("pin_in_" + std::to_string(pin.id)).c_str(), ImVec2(16, 16));
+            ImGui::SetCursorScreenPos(ImVec2(pp.x - hit * 0.5f, pp.y - hit * 0.5f));
+            ImGui::InvisibleButton(("pin_in_" + std::to_string(pin.id)).c_str(), ImVec2(hit, hit));
 
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && m_pendingFromPin.has_value())
             {
@@ -793,26 +888,150 @@ void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
                 m_pendingFromPin.reset();
             }
 
-            dl->AddText(ImVec2(pp.x + 10, pp.y - 7), IM_COL32(210, 210, 220, 255), pin.name.c_str());
+            dl->AddText(font, textSize,
+                ImVec2(pp.x + 10.0f * m_zoom, pp.y - 7.0f * m_zoom),
+                IM_COL32(210, 210, 220, 255), pin.name.c_str());
         }
 
         for (auto& pin : n.outputs)
         {
             ImVec2 pp = GetPinScreenPos(pin, origin);
             dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, false));
-            //dl->AddCircleFilled(pp, pinR, IM_COL32(220, 180, 120, 255));
 
-            ImGui::SetCursorScreenPos(ImVec2(pp.x - 8, pp.y - 8));
-            ImGui::InvisibleButton(("pin_out_" + std::to_string(pin.id)).c_str(), ImVec2(16, 16));
+            ImGui::SetCursorScreenPos(ImVec2(pp.x - hit * 0.5f, pp.y - hit * 0.5f));
+            ImGui::InvisibleButton(("pin_out_" + std::to_string(pin.id)).c_str(), ImVec2(hit, hit));
 
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
                 m_pendingFromPin = pin.id;
 
-            ImVec2 txt = ImGui::CalcTextSize(pin.name.c_str());
-            dl->AddText(ImVec2(pp.x - 10 - txt.x, pp.y - 7), IM_COL32(210, 210, 220, 255), pin.name.c_str());
+            ImVec2 txt = font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, pin.name.c_str());
+            dl->AddText(font, textSize,
+                ImVec2(pp.x - 10.0f * m_zoom - txt.x, pp.y - 7.0f * m_zoom),
+                IM_COL32(210, 210, 220, 255), pin.name.c_str());
         }
     }
 }
+
+//void NodeEditorPanel::DrawNodes(ImDrawList* dl, const ImVec2& origin)
+//{
+//    for (auto& n : m_nodes)
+//    {
+//        ImVec2 p = CanvasToScreen(n.pos, origin);
+//        ImVec2 sz(n.size.x * m_zoom, n.size.y * m_zoom);
+//        ImVec2 p2(p.x + sz.x, p.y + sz.y);
+//
+//        const float round = 8.0f * m_zoom;
+//        const float titleH = 24.0f * m_zoom;
+//
+//        dl->AddRectFilled(p, p2, IM_COL32(52, 52, 60, 240), round);
+//        dl->AddRect(p, p2, IM_COL32(95, 95, 110, 255), round, 0, 1.5f * m_zoom);
+//
+//
+//
+//        ImVec2 t2(p2.x, p.y + titleH);
+//        dl->AddRectFilled(p, t2, IM_COL32(70, 70, 85, 255), round, ImDrawFlags_RoundCornersTop);
+//        ImFont* font = ImGui::GetFont();
+//        const float textSize = ImGui::GetFontSize() * m_zoom;
+//        dl->AddText(font, textSize, ImVec2(p.x + 8.0f * m_zoom, p.y + 5.0f * m_zoom),
+//            IM_COL32(235, 235, 240, 255), n.name.c_str());
+//
+//        ImGui::SetCursorScreenPos(p);
+//        ImGui::InvisibleButton(("node_drag_" + std::to_string(n.id)).c_str(), ImVec2(sz.x, titleH));
+//        if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f))
+//        {
+//            n.pos.x += ImGui::GetIO().MouseDelta.x / m_zoom;
+//            n.pos.y += ImGui::GetIO().MouseDelta.y / m_zoom;
+//        }
+//
+//        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+//            m_selectedNodeId = n.id;
+//        //##############################
+//
+//        ImGui::BeginGroup();
+//        ImGui::PushID(n.id);
+//
+//        // scale font + style for widgets
+//        const float oldScale = ImGui::GetCurrentWindow()->FontWindowScale;
+//        ImGui::SetWindowFontScale(oldScale * m_zoom);
+//
+//        ImGuiStyle& style = ImGui::GetStyle();
+//        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x * m_zoom, style.FramePadding.y * m_zoom));
+//        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(style.ItemSpacing.x * m_zoom, style.ItemSpacing.y * m_zoom));
+//        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(style.ItemInnerSpacing.x * m_zoom, style.ItemInnerSpacing.y * m_zoom));
+//        ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style.GrabMinSize * m_zoom);
+//        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, style.FrameRounding * m_zoom);
+//
+//        ImGui::PushItemWidth(sz.x - 90.0f * m_zoom);
+//        DrawNodeContents(n);
+//        ImGui::PopItemWidth();
+//
+//        /*ImGui::PopStyleVar(5);
+//        ImGui::SetWindowFontScale(oldScale);
+//
+//        ImGui::PopID();
+//        ImGui::EndGroup();*/
+//
+//        /*ImGui::SetCursorScreenPos(ImVec2(p.x + 8.0f * m_zoom, p.y + 30.0f * m_zoom));
+//        ImGui::BeginGroup();
+//        ImGui::PushID(n.id);
+//        ImGui::PushItemWidth(sz.x - 90.0f * m_zoom);
+//        DrawNodeContents(n);
+//        ImGui::PopItemWidth();
+//        ImGui::PopID();
+//        ImGui::EndGroup();*/
+//
+//        const float pinR = 5.0f * m_zoom;
+//        const float hit = 16.0f * m_zoom;
+//
+//        for (auto& pin : n.inputs)
+//        {
+//            ImVec2 pp = GetPinScreenPos(pin, origin);
+//            dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, true));
+//
+//            ImGui::SetCursorScreenPos(ImVec2(pp.x - hit * 0.5f, pp.y - hit * 0.5f));
+//            ImGui::InvisibleButton(("pin_in_" + std::to_string(pin.id)).c_str(), ImVec2(hit, hit));
+//
+//            if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && m_pendingFromPin.has_value())
+//            {
+//                TryCreateLink(*m_pendingFromPin, pin.id);
+//                m_pendingFromPin.reset();
+//            }
+//
+//           /* dl->AddText(ImVec2(pp.x + 10.0f * m_zoom, pp.y - 7.0f * m_zoom),
+//                IM_COL32(210, 210, 220, 255), pin.name.c_str());*/
+//            dl->AddText(font, textSize,
+//                ImVec2(pp.x + 10.0f * m_zoom, pp.y - 7.0f * m_zoom),
+//                IM_COL32(210, 210, 220, 255), pin.name.c_str());
+//
+//        }
+//
+//        for (auto& pin : n.outputs)
+//        {
+//            ImVec2 pp = GetPinScreenPos(pin, origin);
+//            dl->AddCircleFilled(pp, pinR, PinColor(pin.kind, false));
+//
+//            ImGui::SetCursorScreenPos(ImVec2(pp.x - hit * 0.5f, pp.y - hit * 0.5f));
+//            ImGui::InvisibleButton(("pin_out_" + std::to_string(pin.id)).c_str(), ImVec2(hit, hit));
+//
+//            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+//                m_pendingFromPin = pin.id;
+//
+//            ImVec2 txt = ImGui::CalcTextSize(pin.name.c_str());
+//            dl->AddText(font, textSize,
+//                ImVec2(pp.x - 10.0f * m_zoom - txt.x, pp.y - 7.0f * m_zoom),
+//                IM_COL32(210, 210, 220, 255), pin.name.c_str());
+//        }
+//
+//        ImGui::PopStyleVar(5);
+//        ImGui::SetWindowFontScale(oldScale);
+//
+//        ImGui::PopID();
+//        ImGui::EndGroup();
+//    }
+//
+//
+//}
+
 
 void NodeEditorPanel::Draw(TextureDocument& doc)
 {
@@ -847,6 +1066,36 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
     const bool canvasHovered = ImGui::IsItemHovered();
     const bool canvasActive = ImGui::IsItemActive();
 
+    // --------------------------------------------
+    // zoom
+    //  ----------------------------------------
+
+    ImGuiIO& io = ImGui::GetIO();
+    // zoom: only when canvas hovered
+    if (canvasHovered && io.MouseWheel != 0.0f)
+    {
+        const float oldZoom = m_zoom;
+        m_zoom = std::clamp(m_zoom * (1.0f + io.MouseWheel * 0.10f), m_minZoom, m_maxZoom);
+
+        ImVec2 mouse = io.MousePos;
+        m_panning.x += (mouse.x - canvasPos.x) * (1.0f / m_zoom - 1.0f / oldZoom);
+        m_panning.y += (mouse.y - canvasPos.y) * (1.0f / m_zoom - 1.0f / oldZoom);
+    }
+
+    // pan with middle mouse drag (divide by zoom)
+    if (canvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
+    {
+        ImVec2 d = ImGui::GetIO().MouseDelta;
+        m_panning.x += d.x / m_zoom;
+        m_panning.y += d.y / m_zoom;
+    }
+
+    // IMPORTANT: origin should be canvasPos only
+    ImVec2 origin = canvasPos;
+
+
+
+
     // --------------------------------------------------------------------------------------------------------
 	// right-click to open context menu
 	// --------------------------------------------------------------------------------------------------------
@@ -856,8 +1105,11 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 		ImGui::OpenPopup("node_canvas_context");
 	}
 
+    
+
     if (ImGui::BeginPopup("node_canvas_context", ImGuiWindowFlags_None))
     {
+        
 
         if (ImGui::BeginMenu("Add Material")) {
             
@@ -877,6 +1129,9 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
             }
 			if (ImGui::MenuItem("Add Color")) {
                 NewNode(NodeType::Color, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Mortar Color")) {
+				NewNode(NodeType::MortarColor, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
 			}
             if (ImGui::MenuItem("Add Noise")) {
                 NewNode(NodeType::Noise, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
@@ -923,13 +1178,14 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 
     // pan with middle mouse drag
     
-    if (canvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
+    /*if (canvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
     {
         ImVec2 d = ImGui::GetIO().MouseDelta;
-        m_panning.x += d.x;
-        m_panning.y += d.y;
-    }
-
+        m_panning.x += d.x / m_zoom;
+        m_panning.y += d.y / m_zoom;
+    }*/
+    
+      
     
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
@@ -937,7 +1193,7 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
     DrawGrid(dl, canvasPos, canvasSize);
 
     // editor origin = canvas + pan
-    ImVec2 origin(canvasPos.x + m_panning.x, canvasPos.y + m_panning.y);
+    //ImVec2 origin(canvasPos.x + m_panning.x, canvasPos.y + m_panning.y);
 
     DrawLinks(dl, origin);
     DrawNodes(dl, origin);
