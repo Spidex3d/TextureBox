@@ -1,5 +1,4 @@
 #include "core/material/WoodMaterial.h"
-
 #include <algorithm>
 #include <cmath>
 
@@ -61,7 +60,9 @@ Maps GenerateWoodMaps(const WoodSettings& s)
 
             // plank seam mask
             float seamEdge = std::min(fpu, 1.0f - fpu);
-            float seam = 1.0f - Smooth(s.seamWidth * 0.5f, s.seamWidth, seamEdge); // 1 at seam center
+
+            float sw = std::max(s.seamWidth, 0.0001f);
+            float seam = 1.0f - Smooth(sw * 0.5f, sw, seamEdge);
 
             // color blend
             float br = s.woodColorA[0] + (s.woodColorB[0] - s.woodColorA[0]) * wood;
@@ -73,9 +74,11 @@ Maps GenerateWoodMaps(const WoodSettings& s)
             bb = Clamp01(bb * toneJitter);
 
             // subtle dark seam
-            br *= (1.0f - seam * 0.12f);
-            bg *= (1.0f - seam * 0.12f);
-            bb *= (1.0f - seam * 0.12f);
+            br *= (1.0f - seam * 0.35f);
+            bg *= (1.0f - seam * 0.35f);
+            bb *= (1.0f - seam * 0.35f);
+
+            
 
             // height: ring relief + tiny pitting + seam dip
             float micro = (grainFine - 0.5f) * s.pitting;

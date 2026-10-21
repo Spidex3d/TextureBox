@@ -149,6 +149,8 @@
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\core\image.cpp" />
     <ClCompile Include="src\core\material\BrickMaterial.cpp" />
+    <ClCompile Include="src\core\material\MetalMaterial.cpp" />
+    <ClCompile Include="src\core\material\RockMaterial.cpp" />
     <ClCompile Include="src\core\material\WoodMaterial.cpp" />
     <ClCompile Include="src\core\NormalMap.cpp" />
     <ClCompile Include="src\core\Roughness.cpp" />
@@ -177,7 +179,14 @@
     <ClInclude Include="inc\core\FileDialog.h" />
     <ClInclude Include="inc\core\Helper.h" />
     <ClInclude Include="inc\core\material\BrickMaterial.h" />
+    <ClInclude Include="inc\core\material\BrickNode.h" />
+    <ClInclude Include="inc\core\material\MetalMaterial.h" />
+    <ClInclude Include="inc\core\material\MetalNode.h" />
+    <ClInclude Include="inc\core\material\RockMaterial.h" />
+    <ClInclude Include="inc\core\material\RockNode.h" />
     <ClInclude Include="inc\core\material\WoodMaterial.h" />
+    <ClInclude Include="inc\core\material\WoodNode.h" />
+    <ClInclude Include="inc\core\NodeType.h" />
     <ClInclude Include="inc\core\NormalMap.h" />
     <ClInclude Include="inc\core\Roughness.h" />
     <ClInclude Include="inc\core\Shader.h" />

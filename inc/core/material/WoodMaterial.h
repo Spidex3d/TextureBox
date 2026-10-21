@@ -2,15 +2,6 @@
 #include <core/image.h>
 #include <core/Helper.h>
 
-
-//struct WoodMaps
-//{
-//    Image albedo;
-//    Image height;
-//    Image roughness;
-//    Image ao;
-//};
-
 struct WoodSettings
 {
     int   size = 1024;
@@ -19,6 +10,7 @@ struct WoodSettings
     float rings = 9.0f;          // ring frequency
     float grainScale = 18.0f;    // fine grain frequency
     float warp = 0.12f;          // ring distortion amount
+
 
     // look
     float variation = 0.20f;     // per-plank/random variation

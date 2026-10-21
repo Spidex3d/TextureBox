@@ -4,9 +4,15 @@
 #include <cstring>
 #include <core/FileDialog.h>
 
+#include <core/NodeType.h>
+#include <core\material\WoodNode.h>
+#include "core/material/BrickNode.h"
+#include "core/material/RockNode.h"
+#include "core/material/MetalNode.h"
+
 #include "core/material/BrickMaterial.h"
 #include "core/material/WoodMaterial.h"
-//#include "core/material/MetalMaterial.h"
+#include "core/material/MetalMaterial.h"
 //#include "core/material/GlassMaterial.h"
 //#include "core/material/ColorMaterial.h"
 
@@ -40,6 +46,18 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
         //wood
     case NodeType::Planks: return "Planks";
     case NodeType::Rings:  return "Rings";
+	case NodeType::GrainScale: return "GrainScale";
+	case NodeType::SeamWidth: return "SeamWidth";
+	case NodeType::Warp: return "Warp";
+		// rock
+    case NodeType::Scale:  return "Scale";
+    case NodeType::Cracks: return "Cracks";
+    case NodeType::Detail: return "Detail";
+		// metal
+	case NodeType::Rust: return "Rust";
+	case NodeType::Scratches: return "Scratches";
+	case NodeType::Metallic: return "Metallic";
+
     default: return "Node";
     }
 }
@@ -102,7 +120,17 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 		// wood
     case NodeType::Planks: n.size = ImVec2(200, 80); n.i0 = 6; break;
     case NodeType::Rings:  n.size = ImVec2(200, 80); n.i0 = 9; break;
-
+	case NodeType::GrainScale: n.size = ImVec2(200, 80); n.i0 = 0.5f; break;
+	case NodeType::SeamWidth: n.size = ImVec2(220, 80); n.f0 = 3.0f; break;
+	case NodeType::Warp: n.size = ImVec2(220, 80); n.f0 = 0.1f; break;
+		// rock
+    case NodeType::Scale:  n.size = ImVec2(200, 80); n.i0 = 4;    break;
+    case NodeType::Cracks: n.size = ImVec2(200, 80); n.f0 = 0.35f; break;
+    case NodeType::Detail: n.size = ImVec2(200, 80); n.f0 = 0.5f;  break;
+		// metal
+	case NodeType::Rust: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
+	case NodeType::Scratches: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
+	case NodeType::Metallic: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
 
     }
        
@@ -214,11 +242,43 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
         break;
-    
+	case NodeType::GrainScale:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::SeamWidth:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::Warp:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+        // Rock
+    case NodeType::Scale:
+    case NodeType::Cracks:
+    case NodeType::Detail:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+    case NodeType::Rust:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+    case NodeType::Scratches:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+    case NodeType::Metallic:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+
     }
 }
 
-const NodeEditorPanel::Node* NodeEditorPanel::FindUpstream(int inputPinId) const
+//const NodeEditorPanel::Node* NodeEditorPanel::FindUpstream(int inputPinId) const
+const Node* NodeEditorPanel::FindUpstream(int inputPinId) const
 {
     for (const auto& l : m_links)
     {
@@ -230,7 +290,8 @@ const NodeEditorPanel::Node* NodeEditorPanel::FindUpstream(int inputPinId) const
     return nullptr;
 }
 
-const NodeEditorPanel::Node* NodeEditorPanel::ResolveAlbedoSource(const Node* n) const
+//const NodeEditorPanel::Node* NodeEditorPanel::ResolveAlbedoSource(const Node* n) const
+const Node* NodeEditorPanel::ResolveAlbedoSource(const Node* n) const
 {
     // Albedo node: look through to Material (preferred) or Image
     if (n && n->type == NodeType::Albedo && n->inputs.size() >= 2)
@@ -366,7 +427,7 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
 	// -----------------------------------------------------------
    
     // Material chain for Output.Albedo:
-// Material -> (optional Size/Color/Random...) -> Output.Albedo
+    // Material -> (optional Size/Color/Random...) -> Output.Albedo
     {
         std::vector<const Node*> chain;
         const Node* cur = albedoSrc;
@@ -378,55 +439,21 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             cur = cur->inputs.empty() ? nullptr : FindUpstream(cur->inputs[0].id);
         }
 
-        // if we found a Material node, generate from it + modifiers
+        // ----------------------------------------------------------------------
+        // check for a Brick material chain
+		// ----------------------------------------------------------------------
+
         if (cur && cur->type == NodeType::Material &&
             (MaterialKind)cur->materialKind == MaterialKind::Brick)
         {
-            BrickSettings bs;
-            bs.cols = 4;
+            
+            // This is a brick material chain, generate the maps accordingly from BrickNode.h
+			BrickSettings bs = BuildBrickSettings(chain); 
+            Maps maps = GenerateBrickMaps(bs);
+
+            bs.cols = 4; 
             bs.rows = 4;
 
-            // apply modifiers from nearest-to-material -> nearest-to-output
-            for (auto it = chain.rbegin(); it != chain.rend(); ++it)
-            {
-                const Node* m = *it;
-                switch (m->type)
-                {
-                case NodeType::Size:
-                    bs.cols = m->i0;
-                    bs.rows = m->i1;
-                    break;
-                case NodeType::Color:
-                    bs.brickColor[0] = m->col[0];
-                    bs.brickColor[1] = m->col[1];
-                    bs.brickColor[2] = m->col[2];
-                    break;
-				case NodeType::MortarColor: 
-                    bs.mortarColor[0] = m->col[0];
-                    bs.mortarColor[1] = m->col[1];
-                    bs.mortarColor[2] = m->col[2];
-                    break;
-                case NodeType::Random:
-                    bs.variation = m->f0;
-                    break;
-                case NodeType::Bevel:
-                    bs.bevel = m->f0;
-                    break;
-                case NodeType::EdgeSoften:
-                    bs.edgeSoftMul = m->f0;
-                    break;
-                case NodeType::FacePitting:
-                    bs.pitting = m->f0;
-                    break;
-                case NodeType::Shininess:
-                    bs.shininess = m->f0;
-                    break;
-                default:
-                    break;
-                }
-            }
-
-            Maps maps = GenerateBrickMaps(bs);
 
             doc.sourceImage = maps.albedo;
             doc.sourceTex.Destroy();
@@ -445,53 +472,17 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             return; // done for material chain path
         }
 
+        // -------------------------------------------------------------
+		// check for a Wood material chain
+		// -------------------------------------------------------------
+
         if (cur && cur->type == NodeType::Material &&
             (MaterialKind)cur->materialKind == MaterialKind::Wood)
         {
-            WoodSettings ws;
-
-            for (auto it = chain.rbegin(); it != chain.rend(); ++it)
-            {
-                const Node* m = *it;
-                switch (m->type)
-                {
-                case NodeType::Size:
-                    ws.plankCount = (float)m->i0;   // Cols -> number of planks
-                    ws.rings = (float)m->i1;   // Rows -> ring count
-                    break;
-                case NodeType::Color:
-                    ws.woodColorA[0] = m->col[0];
-                    ws.woodColorA[1] = m->col[1];
-                    ws.woodColorA[2] = m->col[2];
-                    break;
-                case NodeType::MortarColor:         // reused as dark tone
-                    ws.woodColorB[0] = m->col[0];
-                    ws.woodColorB[1] = m->col[1];
-                    ws.woodColorB[2] = m->col[2];
-                    break;
-                case NodeType::Random:
-                    ws.variation = m->f0;
-                    break;
-                case NodeType::FacePitting:
-                    ws.pitting = m->f0;
-                    break;
-                case NodeType::Shininess:
-                    ws.shininess = m->f0;
-                    break;
-                default:
-                    break;
-                    // wood
-                case NodeType::Planks:
-                    ws.plankCount = (float)m->i0;
-                    break;
-                case NodeType::Rings:
-                    ws.rings = (float)m->i0;
-                    break;
-
-                }
-            }
-
+			// This is a wood material chain, generate the maps accordingly from WoodNode.h
+            WoodSettings ws = BuildWoodSettings(chain);
             Maps maps = GenerateWoodMaps(ws);
+
 
             doc.sourceImage = maps.albedo;
             doc.sourceTex.Destroy();
@@ -513,18 +504,79 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             return;
         }
 
+        // ----------------------------------------------------------------------
+        // check for a Rock material chain
+        // ----------------------------------------------------------------------
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Rock)
+        {
+            RockSettings rs = BuildRockSettings(chain);
+            Maps maps = GenerateRockMaps(rs);
+
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+            doc.normalSettings.strength = 5.0f;
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+            return;
+        }
+
+        // ----------------------------------------------------------------------
+        // check for a Metal material chain
+        // ----------------------------------------------------------------------
+
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Metal)
+        {
+            MetalSettings ms = BuildMetalSettings(chain);
+            Maps maps = GenerateMetalMaps(ms);
+
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+			doc.normalSettings.strength = 0.01f;  //think this is to high for metal, but can be adjusted
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+            return;
+        }
+
+
+
 
     }
 
 }
 
-NodeEditorPanel::Node* NodeEditorPanel::FindNode(int nodeId)
+//NodeEditorPanel::Node* NodeEditorPanel::FindNode(int nodeId)
+Node* NodeEditorPanel::FindNode(int nodeId)
 {
     for (auto& n : m_nodes) if (n.id == nodeId) return &n;
     return nullptr;
 }
 
-NodeEditorPanel::Pin* NodeEditorPanel::FindPin(int pinId)
+//NodeEditorPanel::Pin* NodeEditorPanel::FindPin(int pinId)
+Pin* NodeEditorPanel::FindPin(int pinId)
 {
     for (auto& n : m_nodes)
     {
@@ -785,13 +837,12 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
 {
 	// used to load a base material type, which will then be used to generate the final material output
     //const char* items[] = { "Select Material",  "Brick", "Wood", "Metal", "Plastic"};
-        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic" };
+        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic", "Rock" };
 
     switch (n.type)
     {
     case NodeType::Material:
     {
-       // ImGui::SetNextItemWidth(n.size.x - 40.0f);
         ImGui::SetNextItemWidth((n.size.x - 40.0f) * m_zoom);
         ImGui::Combo("##kind", &n.materialKind, kinds, IM_ARRAYSIZE(kinds));
         break;
@@ -907,7 +958,6 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
 	case NodeType::Albedo:
         ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
 
-        //ImGui::TextDisabled("Albedo input");
         break;
     case NodeType::Image:
         ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
@@ -929,7 +979,7 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
         ImGui::Spacing();
         ImGui::Spacing();
-        ImGui::SliderInt("Planks", &n.i0, 1, 24);
+        ImGui::InputInt("Planks", &n.i0, 1, 24);
         break;
 
     case NodeType::Rings:
@@ -938,6 +988,54 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
         ImGui::Spacing();
         ImGui::SliderInt("Rings", &n.i0, 1, 40);
         break;
+	case NodeType::GrainScale:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::SliderInt("Grain Scale", &n.i0, 1, 20);
+		break;
+	case NodeType::SeamWidth:
+		ImGui::SetNextItemWidth((n.size.x - 70.0f) * m_zoom);
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::SliderFloat("Seam Width", &n.f0, 1.0f, 20.0f);
+		break;
+	case NodeType::Warp:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::SliderFloat("Warp", &n.f0, 0.0f, 1.0f);
+		break;
+        // Rock
+    case NodeType::Scale:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+        ImGui::Spacing(); ImGui::Spacing();
+        ImGui::SliderInt("Scale", &n.i0, 1, 12);
+        break;
+    case NodeType::Cracks:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+        ImGui::Spacing(); ImGui::Spacing();
+        ImGui::SliderFloat("Cracks", &n.f0, 0.0f, 1.0f);
+        break;
+    case NodeType::Detail:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+        ImGui::Spacing(); ImGui::Spacing();
+        ImGui::SliderFloat("Detail", &n.f0, 0.0f, 1.0f);
+        break;
+		// metal
+	
+	case NodeType::Rust:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Rust", &n.f0, 0.0f, 1.0f);
+		break;
+	case NodeType::Scratches:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Scratches", &n.f0, 0.0f, 1.0f);
+		break;
+
+
     }
 }
 
@@ -1180,9 +1278,7 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
             if (ImGui::MenuItem("Add Roughness")) {
                 NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
-            if (ImGui::MenuItem("Add Metallic")) {
-                NewNode(NodeType::Metallic, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
-            }
+            
 			// wood
             if (ImGui::MenuItem("Add Planks")) {
                 NewNode(NodeType::Planks, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
@@ -1190,8 +1286,35 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
             if (ImGui::MenuItem("Add Rings")) {
                 NewNode(NodeType::Rings, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
-
-
+			if (ImGui::MenuItem("Add Grain Scale")) {
+				NewNode(NodeType::GrainScale, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Seam Width")) {
+				NewNode(NodeType::SeamWidth, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Warp")) {
+				NewNode(NodeType::Warp, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+            // Rock
+			if (ImGui::MenuItem("Add Scale")) {
+				NewNode(NodeType::Scale, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Cracks")) {
+				NewNode(NodeType::Cracks, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Detail")) {
+				NewNode(NodeType::Detail, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			// Metal
+			if (ImGui::MenuItem("Add Rust")) {
+				NewNode(NodeType::Rust, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Scratches")) {
+				NewNode(NodeType::Scratches, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Metallic")) {
+				NewNode(NodeType::Metallic, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
 
 
 			ImGui::EndMenu();
@@ -1203,16 +1326,6 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 	// ---------------------------------------------------- End context menu ----------------------------------------------------
     
 
-    // pan with middle mouse drag
-    
-    /*if (canvasHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f))
-    {
-        ImVec2 d = ImGui::GetIO().MouseDelta;
-        m_panning.x += d.x / m_zoom;
-        m_panning.y += d.y / m_zoom;
-    }*/
-    
-      
     
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
