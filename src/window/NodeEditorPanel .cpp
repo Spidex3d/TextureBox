@@ -13,6 +13,7 @@
 #include "core/material/BrickMaterial.h"
 #include "core/material/WoodMaterial.h"
 #include "core/material/MetalMaterial.h"
+#include "core/material/PlasticNode.h"
 //#include "core/material/GlassMaterial.h"
 //#include "core/material/ColorMaterial.h"
 
@@ -26,6 +27,8 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     switch (t)
     {
     case NodeType::Output: return "Output";
+    case NodeType::Material: return "Material";
+		// gineric nodes
     case NodeType::Noise: return "Noise";
     case NodeType::Blend: return "Blend";
     case NodeType::HeightToNormal: return "HeightToNormal";
@@ -41,8 +44,9 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     case NodeType::Shininess: return "Shininess";
     case NodeType::AO: return "AO";
     case NodeType::Image: return "Image";
-    case NodeType::Material: return "Material";
     case NodeType::Random: return "Random";
+	case NodeType::Moss: return "Moss"; // should be able to be a material node which can be added to all materials
+    case NodeType::Mottle: return "Mottle";
         //wood
     case NodeType::Planks: return "Planks";
     case NodeType::Rings:  return "Rings";
@@ -57,6 +61,7 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
 	case NodeType::Rust: return "Rust";
 	case NodeType::Scratches: return "Scratches";
 	case NodeType::Metallic: return "Metallic";
+	case NodeType::RustColor: return "RustColor";
 
     default: return "Node";
     }
@@ -100,8 +105,9 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
     switch (type)
     {
     case NodeType::Output:         n.size = ImVec2(190, 200);  break;
-    case NodeType::Image:          n.size = ImVec2(200, 120);  break;
     case NodeType::Material:       n.size = ImVec2(200, 120);  break;
+		// Generic nodes
+    case NodeType::Image:          n.size = ImVec2(200, 120);  break;
     case NodeType::Random:         n.size = ImVec2(200, 80);  break;
     case NodeType::Noise:          n.size = ImVec2(200, 80);  break;
     case NodeType::Blend:          n.size = ImVec2(200, 80);  break;
@@ -117,6 +123,8 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
     case NodeType::EdgeSoften:   n.size = ImVec2(200, 80); n.f0 = 1.6f;  break;
     case NodeType::FacePitting:  n.size = ImVec2(200, 80); n.f0 = 0.08f; break;
     case NodeType::Shininess: n.size = ImVec2(200, 80); n.f0 = 0.0f; break;
+	case NodeType::Moss: n.size = ImVec2(200, 100); n.col[0] = 0.1f; n.col[1] = 0.5f; n.col[2] = 0.1f; break;
+    case NodeType::Mottle:   n.size = ImVec2(200, 80); n.f0 = 0.35f; break;
 		// wood
     case NodeType::Planks: n.size = ImVec2(200, 80); n.i0 = 6; break;
     case NodeType::Rings:  n.size = ImVec2(200, 80); n.i0 = 9; break;
@@ -131,6 +139,7 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 	case NodeType::Rust: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
 	case NodeType::Scratches: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
 	case NodeType::Metallic: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
+	case NodeType::RustColor: n.size = ImVec2(200, 80); n.col[0] = 0.8f; n.col[1] = 0.3f; n.col[2] = 0.1f; break;
 
     }
        
@@ -167,6 +176,11 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
 		addIn("Specular", PinKind::Image);
         addIn("AO", PinKind::Image);
         break;
+
+    case NodeType::Material:
+        addOut("out", PinKind::Material);
+        break;
+
     case NodeType::Albedo:
 		addIn("Img", PinKind::Image);
         addIn("Mat ", PinKind::Material);
@@ -175,10 +189,7 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
     case NodeType::Image:
         addOut("out", PinKind::Image);
         break;
-    case NodeType::Material:
-        addOut("out", PinKind::Material);
-        break;
-        
+            
     case NodeType::Random:
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
@@ -236,6 +247,17 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("Image", PinKind::Image);
         addOut("AO", PinKind::Image);
         break;
+        // moss
+	case NodeType::Moss:
+		addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+		// mottle
+    case NodeType::Mottle:
+        addIn("in", PinKind::Material);
+        addOut("out", PinKind::Material);
+        break;
+
 		//wood
     case NodeType::Planks:
     case NodeType::Rings:
@@ -273,6 +295,12 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addIn("in", PinKind::Material);
         addOut("out", PinKind::Material);
         break;
+	case NodeType::RustColor:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+
+        
 
     }
 }
@@ -547,6 +575,35 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
 
 			doc.normalSettings.strength = 0.01f;  //think this is to high for metal, but can be adjusted
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+            return;
+        }
+
+		// ----------------------------------------------------------------------
+		// Plastic material chain
+		// ----------------------------------------------------------------------
+
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Plastic)
+        {
+            PlasticSettings ps = BuildPlasticSettings(chain);
+            Maps maps = GeneratePlasticMaps(ps);
+
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+            doc.normalSettings.strength = 0.01f;  //think this is to high for metal, but can be adjusted
             doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
             doc.normalTex.Destroy();
             doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
@@ -973,7 +1030,21 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
                 strncpy_s(n.path, sizeof(n.path), picked.c_str(), _TRUNCATE);
         }
         break;
-
+		// moss
+    case NodeType::Moss:
+        ImGui::Spacing();
+        ImGui::Spacing();
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::SliderFloat("Moss Amount", &n.f0, 0.0f, 1.0f);
+        ImGui::Spacing();
+		ImGui::ColorEdit3("Moss Color", n.col);
+        break;
+		// mottle
+    case NodeType::Mottle:
+        ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+        ImGui::Spacing(); ImGui::Spacing();
+        ImGui::SliderFloat("Mottle", &n.f0, 0.0f, 1.0f);
+        break;
         // wood
     case NodeType::Planks:
         ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
@@ -1033,6 +1104,12 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
 		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
 		ImGui::Spacing(); ImGui::Spacing();
 		ImGui::SliderFloat("Scratches", &n.f0, 0.0f, 1.0f);
+		break;
+
+	case NodeType::RustColor:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::ColorEdit3("Rust Color", n.col);
 		break;
 
 
@@ -1278,6 +1355,16 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
             if (ImGui::MenuItem("Add Roughness")) {
                 NewNode(NodeType::Roughness, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
             }
+
+			// moss
+            if (ImGui::MenuItem("Add Moss")) {
+                NewNode(NodeType::Moss, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+			// mottle
+            if (ImGui::MenuItem("Add Mottle")) {
+                NewNode(NodeType::Mottle, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+            }
+            
             
 			// wood
             if (ImGui::MenuItem("Add Planks")) {
@@ -1295,6 +1382,7 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 			if (ImGui::MenuItem("Add Warp")) {
 				NewNode(NodeType::Warp, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
 			}
+			
             // Rock
 			if (ImGui::MenuItem("Add Scale")) {
 				NewNode(NodeType::Scale, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
@@ -1314,6 +1402,9 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 			}
 			if (ImGui::MenuItem("Add Metallic")) {
 				NewNode(NodeType::Metallic, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Rust Color")) {
+				NewNode(NodeType::RustColor, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
 			}
 
 

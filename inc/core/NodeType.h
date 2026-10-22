@@ -41,9 +41,14 @@ enum class NodeType
     // Metal 
 	Rust,
     Scratches,
+	RustColor,
 
     
-
+    // Moss
+	Moss,
+	
+    Mottle,
+	
 	
 
     // Map Generators / Converters

@@ -150,6 +150,7 @@
     <ClCompile Include="src\core\image.cpp" />
     <ClCompile Include="src\core\material\BrickMaterial.cpp" />
     <ClCompile Include="src\core\material\MetalMaterial.cpp" />
+    <ClCompile Include="src\core\material\PlasticMaterial.cpp" />
     <ClCompile Include="src\core\material\RockMaterial.cpp" />
     <ClCompile Include="src\core\material\WoodMaterial.cpp" />
     <ClCompile Include="src\core\NormalMap.cpp" />
@@ -182,6 +183,8 @@
     <ClInclude Include="inc\core\material\BrickNode.h" />
     <ClInclude Include="inc\core\material\MetalMaterial.h" />
     <ClInclude Include="inc\core\material\MetalNode.h" />
+    <ClInclude Include="inc\core\material\PlasticMaterial.h" />
+    <ClInclude Include="inc\core\material\PlasticNode.h" />
     <ClInclude Include="inc\core\material\RockMaterial.h" />
     <ClInclude Include="inc\core\material\RockNode.h" />
     <ClInclude Include="inc\core\material\WoodMaterial.h" />

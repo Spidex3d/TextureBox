@@ -75,6 +75,8 @@ Maps GenerateMetalMaps(const MetalSettings& s)
         return sum; // ~0..0.94
     };
 
+    const int pBase = std::max(1, (int)std::round(s.scale * 8.0f));
+
     for (int y = 0; y < H; ++y)
     {
         for (int x = 0; x < W; ++x)
@@ -82,85 +84,99 @@ Maps GenerateMetalMaps(const MetalSettings& s)
             float u = (float)x / (float)W;
             float v = (float)y / (float)H;
 
-            // derive tile period from scale
-            int pBase = std::max(1, (int)std::round(s.scale * 8.0f));
+            float big = fbmPeriodic(u * pBase, v * pBase, pBase, pBase);
+            float fine = fbmPeriodic(u * (pBase * 6) + 20.0f, v * (pBase * 6) + 7.0f, pBase * 6, pBase * 6);
 
-            float big = fbmPeriodic(
-                u * (float)pBase,
-                v * (float)pBase,
-                pBase, pBase
-            );
+            float metal = Clamp01((big * (1.0f - s.detail * 0.5f) + fine * (s.detail * 0.5f)) * 1.2f);
 
-            float fine = fbmPeriodic(
-                u * (float)(pBase * 6) + 20.0f,
-                v * (float)(pBase * 6) + 7.0f,
-                pBase * 6, pBase * 6
-            );
+            // ---- scratches: stretched noise, thin contour lines ----
+            // set 1: runs along X (slow in x, fast in y)
+            float n1 = vnoisePeriodic(u * 6.0f + 3.0f, v * 192.0f, 6, 192);
+            // set 2: runs along Y
+            float n2 = vnoisePeriodic(u * 160.0f + 9.0f, v * 5.0f, 160, 5);
+            // set 3: fine brushed streaks along X
+            float n3 = vnoisePeriodic(u * 4.0f, v * 512.0f, 4, 512);
 
-			// scratches: thin dark lines where noise is near threshold
-            int scratchPeriod = std::max(1, (pBase * 3) / 2);
-            float cn = fbmPeriodic(
-                u * (float)scratchPeriod + 25.0f,
-                v * (float)scratchPeriod + 15.0f,
-                scratchPeriod, scratchPeriod
-            );
+            float sc1 = 1.0f - Smooth(0.0f, 0.025f, std::fabs(n1 - 0.5f));
+            float sc2 = 1.0f - Smooth(0.0f, 0.020f, std::fabs(n2 - 0.5f));
+            float sc3 = 1.0f - Smooth(0.0f, 0.040f, std::fabs(n3 - 0.5f));
 
-            float metal = big * (1.0f - s.detail * 0.5f) + fine * (s.detail * 0.5f);
-            metal = Clamp01(metal * 1.2f);
+            // break the lines up so they don't run the full width
+            float breakup = Smooth(0.45f, 0.65f, fbmPeriodic(u * 12.0f, v * 12.0f, 12, 12));
+            float scratch = Clamp01((sc1 + sc2) * breakup + sc3 * 0.25f) * s.scratches;
 
-			// Patches of rust: dark areas where noise is low
-			float rustNoise = fbmPeriodic(
-				u * (float)(pBase * 2) + 10.0f,
-				v * (float)(pBase * 2) + 5.0f,
-				pBase * 2, pBase * 2
-			);
-			rustNoise = Clamp01(rustNoise * 1.2f);
-			rustNoise = 1.0f - rustNoise; // invert to get dark areas
-			rustNoise = Smooth(0.0f, 0.5f, rustNoise); // smooth threshold
+            // ---- rust: low-frequency patches, edged with fine noise ----
+            float rn = fbmPeriodic(u * (pBase / 2 + 1) + 10.0f, v * (pBase / 2 + 1) + 5.0f,
+                pBase / 2 + 1, pBase / 2 + 1);
+            float threshold = 1.0f - s.rust;                 // more rust -> lower threshold
+            float rustMask = Smooth(threshold - 0.08f, threshold + 0.08f, rn + (fine - 0.5f) * 0.25f);
+            rustMask = Clamp01(rustMask * (s.rust > 0.0f ? 1.0f : 0.0f));
+            // scratches expose bare metal, so rust is thinner there
+            rustMask *= (1.0f - scratch * 0.7f);
 
-			// Scratches: thin dark lines where noise is near threshold
-			float scratch = 1.0f - Smooth(0.0f, 0.04f, std::fabs(cn - 0.47f));
-            scratch *= s.scratches;
+			// ---- Moss: low-frequency patches, edged with fine noise ----
+			float mn = fbmPeriodic(u * (pBase / 2 + 1) + 15.0f, v * (pBase / 2 + 1) + 8.0f,
+			pBase / 2 + 1, pBase / 2 + 1);
+			float thresholdm = 1.0f - s.moss;                 // more moss -> lower threshold
+            float mossMask = Smooth(thresholdm - 0.08f, thresholdm + 0.08f, mn + (fine - 0.5f) * 0.25f);
+			mossMask = Clamp01(mossMask * (s.moss > 0.0f ? 1.0f : 0.0f));
+			mossMask *= (1.0f - scratch * 0.7f);
+            mossMask *= (1.0f - rustMask * 0.8f);
 
-
-            // cracks: thin dark lines where noise is near threshold
-            float crack = 1.0f - Smooth(0.0f, 0.04f, std::fabs(cn - 0.47f));
-            crack *= s.scratches;
-
-            // height
-            float h = metal * s.depth + (1.0f - s.depth) * 0.5f;
-            h -= crack * 0.35f;
-            h = Clamp01(h);
-
-            // albedo
+            // ---- albedo ----
             float shade = 1.0f + (fine - 0.5f) * s.variation;
             float r = (s.metalColorB[0] + (s.metalColorA[0] - s.metalColorB[0]) * metal) * shade;
             float g = (s.metalColorB[1] + (s.metalColorA[1] - s.metalColorB[1]) * metal) * shade;
             float b = (s.metalColorB[2] + (s.metalColorA[2] - s.metalColorB[2]) * metal) * shade;
 
-            float darken = 1.0f - crack * 0.6f;
-            r = Clamp01(r * darken);
-            g = Clamp01(g * darken);
-            b = Clamp01(b * darken);
+            // scratches are lighter bare metal
+            r += scratch * 0.25f; g += scratch * 0.25f; b += scratch * 0.25f;
+
+            // rust colour, varied by fine noise
+            float rv = 0.7f + 0.6f * fine;
+            float rr = s.rustColor[0] * rv, rg = s.rustColor[1] * rv, rb = s.rustColor[2] * rv;
+            r = r + (rr - r) * rustMask;
+            g = g + (rg - g) * rustMask;
+            b = b + (rb - b) * rustMask;
+            r = Clamp01(r); g = Clamp01(g); b = Clamp01(b);
+
+			// moss colour, varied by fine noise
+			float mv = 0.7f + 0.6f * fine;
+			float mr = s.mossColor[0] * mv, mg = s.mossColor[1] * mv, mb = s.mossColor[2] * mv;
+			r = r + (mr - r) * mossMask;
+			g = g + (mg - g) * mossMask;
+			b = b + (mb - b) * mossMask;
+			r = Clamp01(r); g = Clamp01(g); b = Clamp01(b);
+
+            // ---- height: scratches cut in, rust is pitted/raised ----
+            float h = metal * s.depth + (1.0f - s.depth) * 0.5f;
+            h -= scratch * 0.15f;
+            h += rustMask * (0.08f + (fine - 0.5f) * 0.12f);
+            h = Clamp01(h);
+
+            // ---- roughness: shiny metal, rough rust, scratches scatter light ----
+            float rough = 0.30f - 0.15f * metal;
+            float polished = 0.08f + 0.05f * fine;
+            rough = rough + (polished - rough) * s.shininess;
+            rough += scratch * 0.25f;
+            rough = rough + (0.85f - rough) * rustMask;
+            rough = Clamp01(rough);
+
+            // ---- AO ----
+            float ao = Clamp01(0.85f + 0.15f * metal - scratch * 0.15f - rustMask * 0.25f);
+
+			// ---- moss: moss is green, rough, and slightly darker ----
+            rough = rough + (0.92f - rough) * mossMask;  // moss is rough
+            ao = Clamp01(ao - mossMask * 0.12f);      // slightly darker occlusion
 
             const int i = y * W + x;
             Put(m.albedo, i, r, g, b);
             Put(m.height, i, h, h, h);
-           // Put(m.metallic, i, rustNoise, rustNoise, rustNoise);
-
-            // roughness
-            float rough = 0.25f - 0.10f * metal;
-            float wet = 0.15f + 0.10f * fine;
-            rough = rough + (wet - rough) * s.shininess * (1.0f - crack);
-            rough = Clamp01(rough);
             Put(m.roughness, i, rough, rough, rough);
-
-            // AO
-            float ao = 0.55f + 0.45f * metal - crack * 0.4f;
-            ao = Clamp01(ao);
             Put(m.ao, i, ao, ao, ao);
         }
     }
+
 
     return m;
 }
