@@ -482,19 +482,6 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             bs.cols = 4; 
             bs.rows = 4;
 
-
-            /*doc.sourceImage = maps.albedo;
-            doc.sourceTex.Destroy();
-            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
-
-            doc.normalSettings.strength = 4.0f;
-            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
-            doc.normalTex.Destroy();
-            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
-
-            doc.roughnessImage = maps.roughness;
-            doc.roughnessTex.Destroy();
-            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);*/
             doc.sourceImage = maps.albedo;
             doc.sourceTex.Destroy();
             doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
