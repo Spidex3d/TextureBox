@@ -483,7 +483,7 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             bs.rows = 4;
 
 
-            doc.sourceImage = maps.albedo;
+            /*doc.sourceImage = maps.albedo;
             doc.sourceTex.Destroy();
             doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
 
@@ -494,9 +494,33 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
 
             doc.roughnessImage = maps.roughness;
             doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);*/
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+            // Normal from brick height
+            doc.normalSettings.strength = 4.0f;
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            // Roughness
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
             doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
 
+            // AO  <-- add/keep this
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
 
+            // Displacement (height)  <-- add this if your doc has these fields
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
+            
             return; // done for material chain path
         }
 
@@ -529,6 +553,11 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.aoTex.Destroy();
             doc.aoReady = doc.aoTex.Upload(doc.aoImage);
 
+            // Displacement (height)  <-- add this if your doc has these fields
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
             return;
         }
 
@@ -557,6 +586,12 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.aoImage = maps.ao;
             doc.aoTex.Destroy();
             doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
+
             return;
         }
 
@@ -586,6 +621,12 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.aoImage = maps.ao;
             doc.aoTex.Destroy();
             doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
+
             return;
         }
 

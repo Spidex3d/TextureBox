@@ -15,6 +15,10 @@ static const GLTexture* GetMapTexture(const TextureDocument& doc, ViewMapMode m)
         return (doc.roughnessReady && doc.roughnessTex.IsValid()) ? &doc.roughnessTex : nullptr;
 	case ViewMapMode::AO:
 		return (doc.aoReady && doc.aoTex.IsValid()) ? &doc.aoTex : nullptr;
+	case ViewMapMode::Displacement:
+		return (doc.displacementReady && doc.displacementTex.IsValid()) ? &doc.displacementTex : nullptr;
+
+
     default:
         return nullptr; // AO, Displacement, Specular: not implemented yet
     }

@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClCompile Include="glad.c" />
     <ClCompile Include="src\core\AOMap.cpp" />
+    <ClCompile Include="src\core\DisplacementMap.cpp" />
     <ClCompile Include="src\core\FileDialog.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\App.cpp" />
@@ -177,6 +178,7 @@
   <ItemGroup>
     <ClInclude Include="inc\App.h" />
     <ClInclude Include="inc\core\AOMap.h" />
+    <ClInclude Include="inc\core\DisplacementMap.h" />
     <ClInclude Include="inc\core\FileDialog.h" />
     <ClInclude Include="inc\core\Helper.h" />
     <ClInclude Include="inc\core\material\BrickMaterial.h" />

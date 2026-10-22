@@ -4,6 +4,7 @@
 #include <window/GLTexture.h>
 #include <core/NormalMap.h>
 #include <core/Roughness.h>
+#include <core/DisplacementMap.h>
 #include <core/AOMap.h>
 
  
@@ -36,10 +37,7 @@ struct TextureDocument
     GLTexture sourceTex;
     GLTexture normalTex;
     GLTexture roughnessTex;
-	//GLTexture albedoTex;
-	//GLTexture displacementTex;
-	//GLTexture specularTex;
-
+	
 
     std::string BaseName() const;
     std::string materialName;   // set by the node graph, used for export names
@@ -48,8 +46,8 @@ struct TextureDocument
     std::string SuggestedAlbedoName() const;
     std::string SuggestedNormalName() const;
 	std::string SuggestedRoughnessName() const;
-	//std::string SuggestedAOName() const;
-	//std::string SuggestedDisplacementName() const;
+	std::string SuggestedAOName() const;
+	std::string SuggestedDisplacementName() const;
 	//std::string SuggestedSpecularName() const;
     
 
@@ -58,7 +56,7 @@ struct TextureDocument
     NormalMapSettings normalSettings;
 	RoughnessMapSettings roughnessSettings;
 	AOSettings aoSettings;
-	//DisplacementMapSettings displacementSettings;
+	DisplacementMapSettings displacementSettings;
 	//SpecularMapSettings specularSettings;
 
     bool LoadSource(const std::string& path)

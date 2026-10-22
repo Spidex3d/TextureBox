@@ -165,6 +165,9 @@ Maps GenerateMetalMaps(const MetalSettings& s)
             // ---- AO ----
             float ao = Clamp01(0.85f + 0.15f * metal - scratch * 0.15f - rustMask * 0.25f);
 
+            // ---- Displacement
+			float displacement = h; // use height as displacement
+
 			// ---- moss: moss is green, rough, and slightly darker ----
             rough = rough + (0.92f - rough) * mossMask;  // moss is rough
             ao = Clamp01(ao - mossMask * 0.12f);      // slightly darker occlusion

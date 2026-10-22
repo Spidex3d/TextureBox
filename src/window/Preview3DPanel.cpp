@@ -228,10 +228,6 @@ void Preview3DPanel::Draw(TextureDocument& doc)
     const float tbHeight = 300.0f;
     ImGui::BeginChild("##3d_toolbar", ImVec2(ImGui::GetContentRegionAvail().x, tbHeight), false, ImGuiWindowFlags_NoDecoration);
 
-    /*ImGui::SeparatorText("Debug Maps");
-    ImGui::Text("sourceLoaded: %d", doc.sourceLoaded ? 1 : 0);
-    ImGui::Text("normalReady: %d", doc.normalReady ? 1 : 0);
-    ImGui::Text("roughnessReady: %d", doc.roughnessReady ? 1 : 0);*/
 
     ImGui::SeparatorText("Cube scale");
     ImGui::SliderFloat("Cube Scale", &m_modelScale, 0.2f, 1.2f);

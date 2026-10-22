@@ -174,6 +174,8 @@ int App::Run()
 				saveOne(m_doc.sourceLoaded, m_doc.sourceImage, "albedo", "Albedo");
 				saveOne(m_doc.normalReady, m_doc.normalImage, "normal", "Normal");
 				saveOne(m_doc.roughnessReady, m_doc.roughnessImage, "roughness", "Roughness");
+				saveOne(m_doc.aoReady, m_doc.aoImage, "ao", "Ambient Occlusion");
+				saveOne(m_doc.displacementReady, m_doc.displacementImage, "displacement", "Displacement");
 
 				// Write .mat sidecar next to textures
 				std::string matPath = folder + stem + ".mat";
@@ -188,6 +190,8 @@ int App::Run()
 					if (m_doc.sourceLoaded)   mat << "albedo=" << stem << "_albedo.png\n";
 					if (m_doc.normalReady)    mat << "normal=" << stem << "_normal.png\n";
 					if (m_doc.roughnessReady) mat << "roughness=" << stem << "_roughness.png\n";
+					if (m_doc.aoReady)        mat << "ao=" << stem << "_ao.png\n";
+					if (m_doc.displacementReady) mat << "displacement=" << stem << "_displacement.png\n";
 					mat << "version=1\n";
 					mat.close();
 

@@ -20,12 +20,5 @@ struct BrickSettings
     float shininess = 0.0f; // 0 = matt brick, 1 = glazed tile
 };
 
-//struct BrickMaps
-//{
-//    Image albedo;
-//    Image height;
-//    Image roughness;
-//    Image ao;
-//};
 
 Maps GenerateBrickMaps(const BrickSettings& s);

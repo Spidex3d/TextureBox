@@ -14,6 +14,7 @@ struct Maps
     Image height;
     Image roughness;
     Image ao;
+    
 };
 
 static float Hash(int x, int y)
