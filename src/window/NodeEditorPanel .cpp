@@ -922,7 +922,7 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
 {
 	// used to load a base material type, which will then be used to generate the final material output
     //const char* items[] = { "Select Material",  "Brick", "Wood", "Metal", "Plastic"};
-        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic", "Rock" };
+        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic", "Rock", "Gravel", "Dirt"};
 
     switch (n.type)
     {

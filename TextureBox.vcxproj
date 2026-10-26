@@ -150,6 +150,8 @@
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\core\image.cpp" />
     <ClCompile Include="src\core\material\BrickMaterial.cpp" />
+    <ClCompile Include="src\core\material\Dirt.cpp" />
+    <ClCompile Include="src\core\material\Gravel.cpp" />
     <ClCompile Include="src\core\material\MetalMaterial.cpp" />
     <ClCompile Include="src\core\material\PlasticMaterial.cpp" />
     <ClCompile Include="src\core\material\RockMaterial.cpp" />
@@ -183,6 +185,8 @@
     <ClInclude Include="inc\core\Helper.h" />
     <ClInclude Include="inc\core\material\BrickMaterial.h" />
     <ClInclude Include="inc\core\material\BrickNode.h" />
+    <ClInclude Include="inc\core\material\Dirt.h" />
+    <ClInclude Include="inc\core\material\Gravel.h" />
     <ClInclude Include="inc\core\material\MetalMaterial.h" />
     <ClInclude Include="inc\core\material\MetalNode.h" />
     <ClInclude Include="inc\core\material\PlasticMaterial.h" />

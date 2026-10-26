@@ -111,6 +111,12 @@
     <ClCompile Include="src\core\DisplacementMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\material\Gravel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\material\Dirt.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\App.h">
@@ -234,6 +240,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="inc\core\DisplacementMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\core\material\Gravel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\core\material\Dirt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
