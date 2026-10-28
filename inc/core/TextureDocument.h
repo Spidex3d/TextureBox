@@ -6,6 +6,7 @@
 #include <core/Roughness.h>
 #include <core/DisplacementMap.h>
 #include <core/AOMap.h>
+#include <core/SpecularMap.h>   
 
  
 
@@ -32,7 +33,10 @@ struct TextureDocument
     bool specularReady = false;
     Image specularImage;
     GLTexture specularTex;
-
+	// Emission map
+	bool emissionReady = false;
+    Image emissionImage;
+    GLTexture emissionTex;
 
     GLTexture sourceTex;
     GLTexture normalTex;
@@ -49,6 +53,7 @@ struct TextureDocument
 	std::string SuggestedAOName() const;
 	std::string SuggestedDisplacementName() const;
 	std::string SuggestedSpecularName() const;
+	std::string SuggestedEmissionName() const;
     
 
     
@@ -57,7 +62,8 @@ struct TextureDocument
 	RoughnessMapSettings roughnessSettings;
 	AOSettings aoSettings;
 	DisplacementMapSettings displacementSettings;
-	//SpecularMapSettings specularSettings;
+	SpecularMapSettings specularSettings;
+
 
     bool LoadSource(const std::string& path)
     {

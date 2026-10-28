@@ -14,7 +14,8 @@ enum class ViewMapMode
     Roughness,
     AO,
     Displacement,
-    Specular
+    Specular,
+    Emission
 };
 
 class TextureViewport

@@ -17,6 +17,10 @@ static const GLTexture* GetMapTexture(const TextureDocument& doc, ViewMapMode m)
 		return (doc.aoReady && doc.aoTex.IsValid()) ? &doc.aoTex : nullptr;
 	case ViewMapMode::Displacement:
 		return (doc.displacementReady && doc.displacementTex.IsValid()) ? &doc.displacementTex : nullptr;
+	case ViewMapMode::Specular:
+		return (doc.specularReady && doc.specularTex.IsValid()) ? &doc.specularTex : nullptr;
+	case ViewMapMode::Emission:
+		return (doc.emissionReady && doc.emissionTex.IsValid()) ? &doc.emissionTex : nullptr;
 
 
     default:
@@ -51,6 +55,7 @@ TextureViewportAction TextureViewport::DrawTextureViewport(const TextureDocument
         { "AO",           ViewMapMode::AO },
         { "Displacement", ViewMapMode::Displacement },
         { "Specular",     ViewMapMode::Specular },
+		{ "Emission",     ViewMapMode::Emission }
     };
 
     // ---- thumbnail strip ----

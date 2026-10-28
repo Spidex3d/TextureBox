@@ -33,21 +33,25 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
     {
     case NodeType::Output: return "Output";
     case NodeType::Material: return "Material";
-		// gineric nodes
-    case NodeType::Noise: return "Noise";
-    case NodeType::Blend: return "Blend";
+		// Special node for Image output and Material output
+    case NodeType::Albedo: return "Albedo";
+		// Image nodes
     case NodeType::HeightToNormal: return "HeightToNormal";
     case NodeType::Roughness: return "Roughness";
+    case NodeType::AO: return "AO";
+    case NodeType::Displacement: return "Displacement";
+    case NodeType::Specular: return "Specular";
+		// generic nodes
+    case NodeType::Noise: return "Noise";
+    case NodeType::Blend: return "Blend";
     case NodeType::Color: return "Color";
     case NodeType::MortarColor: return "MortarColor";
-    case NodeType::Albedo: return "Albedo";
 	case NodeType::Depth: return "Depth";
 	case NodeType::Size: return "Size";
     case NodeType::Bevel: return "Bevel";
     case NodeType::EdgeSoften: return "EdgeSoften";
     case NodeType::FacePitting: return "FacePitting";
     case NodeType::Shininess: return "Shininess";
-    case NodeType::AO: return "AO";
     case NodeType::Image: return "Image";
     case NodeType::Random: return "Random";
 	case NodeType::Moss: return "Moss"; // should be able to be a material node which can be added to all materials

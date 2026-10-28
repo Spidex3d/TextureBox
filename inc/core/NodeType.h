@@ -63,6 +63,8 @@ enum class NodeType
     HeightToNormal,
     Roughness,
     AO,
+	Displacement,
+	Specular,
     Metallic,
     Emission,
     Transparency

@@ -196,7 +196,7 @@
     <ClInclude Include="inc\core\material\PlasticNode.h" />
     <ClInclude Include="inc\core\material\RockMaterial.h" />
     <ClInclude Include="inc\core\material\RockNode.h" />
-    <ClInclude Include="inc\core\material\SpecularMap.h" />
+    <ClInclude Include="inc\core\SpecularMap.h" />
     <ClInclude Include="inc\core\material\WoodMaterial.h" />
     <ClInclude Include="inc\core\material\WoodNode.h" />
     <ClInclude Include="inc\core\NodeType.h" />

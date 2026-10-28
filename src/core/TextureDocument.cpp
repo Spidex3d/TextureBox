@@ -15,3 +15,4 @@ std::string TextureDocument::SuggestedNormalName() const { return BaseName() + "
 std::string TextureDocument::SuggestedRoughnessName() const { return BaseName() + "_roughness.png"; }
 std::string TextureDocument::SuggestedAOName() const { return BaseName() + "_ao.png"; }
 std::string TextureDocument::SuggestedDisplacementName() const { return BaseName() + "_displacement.png"; }
+std::string TextureDocument::SuggestedSpecularName() const { return BaseName() + "_specular.png"; }

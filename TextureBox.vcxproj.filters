@@ -257,7 +257,7 @@
     <ClInclude Include="inc\core\material\GravelNode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="inc\core\material\SpecularMap.h">
+    <ClInclude Include="inc\core\SpecularMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
