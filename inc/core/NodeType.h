@@ -42,6 +42,14 @@ enum class NodeType
 	Rust,
     Scratches,
 	RustColor,
+	// Dirt
+	DirtAmount,
+	ClodSize,
+    // Gravel
+	Veins,
+	StoneCount,
+    Irregularity,
+    Coverage,
 
     
     // Moss
@@ -67,7 +75,9 @@ enum class MaterialKind
     Wood,
     Glass,
     Plastic,
-    Rock
+    Rock,
+	Dirt,
+	Gravel
 };
 enum class PinKind
 {

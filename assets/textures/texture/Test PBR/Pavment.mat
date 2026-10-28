@@ -1,0 +1,7 @@
+name=Pavment
+albedo=Pavment_albedo.png
+normal=Pavment_normal.png
+roughness=Pavment_roughness.png
+ao=Pavment_ao.png
+displacement=Pavment_displacement.png
+version=1

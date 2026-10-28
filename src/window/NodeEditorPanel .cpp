@@ -9,11 +9,16 @@
 #include "core/material/BrickNode.h"
 #include "core/material/RockNode.h"
 #include "core/material/MetalNode.h"
+#include "core/material/PlasticNode.h"
+#include "core/material/DirtNode.h"
+#include "core/material/GravelNode.h"
 
 #include "core/material/BrickMaterial.h"
 #include "core/material/WoodMaterial.h"
 #include "core/material/MetalMaterial.h"
-#include "core/material/PlasticNode.h"
+#include "core/material/PlasticMaterial.h"
+#include "core/material/DirtMaterial.h"
+#include "core/material/GravelMaterial.h"
 //#include "core/material/GlassMaterial.h"
 //#include "core/material/ColorMaterial.h"
 
@@ -62,6 +67,15 @@ const char* NodeEditorPanel::NodeTypeName(NodeType t)
 	case NodeType::Scratches: return "Scratches";
 	case NodeType::Metallic: return "Metallic";
 	case NodeType::RustColor: return "RustColor";
+		// dirt
+	case NodeType::DirtAmount: return "Dirt Amount";
+	case NodeType::ClodSize: return "Clod Size";
+        // gravel
+	case NodeType::Veins: return "Veins";
+	case NodeType::StoneCount: return "StoneCount";
+	case NodeType::Irregularity: return "Irregularity";
+	case NodeType::Coverage: return "Coverage";
+
 
     default: return "Node";
     }
@@ -140,6 +154,14 @@ int NodeEditorPanel::NewNode(NodeType type, const ImVec2& pos)
 	case NodeType::Scratches: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
 	case NodeType::Metallic: n.size = ImVec2(200, 80); n.f0 = 0.5f; break;
 	case NodeType::RustColor: n.size = ImVec2(200, 80); n.col[0] = 0.8f; n.col[1] = 0.3f; n.col[2] = 0.1f; break;
+		// dirt
+	case NodeType::DirtAmount: n.size = ImVec2(200, 80); n.i0 = 100; break;
+	case NodeType::ClodSize: n.size = ImVec2(200, 80); n.f0 = 0.2f; break;
+		// gravel
+	case NodeType::Veins: n.size = ImVec2(200, 80); n.f0 = 0.0f; break;
+	case NodeType::StoneCount: n.size = ImVec2(200, 80); n.i0 = 100; break;
+	case NodeType::Irregularity: n.size = ImVec2(200, 80); n.f0 = 0.6f; break;
+	case NodeType::Coverage: n.size = ImVec2(200, 80); n.f0 = 1.0f; break;
 
     }
        
@@ -296,6 +318,32 @@ void NodeEditorPanel::BuildPinsForNode(Node& n)
         addOut("out", PinKind::Material);
         break;
 	case NodeType::RustColor:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+		// dirt
+	case NodeType::DirtAmount:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::ClodSize:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+		// gravel
+	case NodeType::Veins:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::StoneCount:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::Irregularity:
+		addIn("in", PinKind::Material);
+		addOut("out", PinKind::Material);
+		break;
+	case NodeType::Coverage:
 		addIn("in", PinKind::Material);
 		addOut("out", PinKind::Material);
 		break;
@@ -643,11 +691,90 @@ void NodeEditorPanel::Evaluate(TextureDocument& doc)
             doc.aoImage = maps.ao;
             doc.aoTex.Destroy();
             doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+
+            // Displacement
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
             return;
         }
 
+        // ----------------------------------------------------------------------
+        // Dirt material chain
+        // ----------------------------------------------------------------------
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Dirt)
+        {
+            DirtSettings ds = BuildDirtSettings(chain);
+            Maps maps = GenerateDirtMaps(ds);
 
+            // Albedo
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
 
+            // Normal (recommended default for dirt)
+            doc.normalSettings.strength = 2.5f;
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            // Roughness
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            // AO
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+
+            // Displacement
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
+            return;
+        }
+
+		// ----------------------------------------------------------------------
+		// Gravel material chain
+		// ----------------------------------------------------------------------
+        
+        if (cur && cur->type == NodeType::Material &&
+            (MaterialKind)cur->materialKind == MaterialKind::Gravel)
+        {
+            GravelSettings gs = BuildGravelSettings(chain);
+            Maps maps = GenerateGravelMaps(gs);
+
+            // Albedo
+            doc.sourceImage = maps.albedo;
+            doc.sourceTex.Destroy();
+            doc.sourceLoaded = doc.sourceTex.Upload(doc.sourceImage);
+
+            // Normal (good default for gravel)
+            doc.normalSettings.strength = 5.5f; // 3.5 round
+            doc.normalImage = GenerateNormalMap(maps.height, doc.normalSettings);
+            doc.normalTex.Destroy();
+            doc.normalReady = doc.normalImage.IsValid() && doc.normalTex.Upload(doc.normalImage);
+
+            // Roughness
+            doc.roughnessImage = maps.roughness;
+            doc.roughnessTex.Destroy();
+            doc.roughnessReady = doc.roughnessTex.Upload(doc.roughnessImage);
+
+            // AO
+            doc.aoImage = maps.ao;
+            doc.aoTex.Destroy();
+            doc.aoReady = doc.aoTex.Upload(doc.aoImage);
+
+            // Displacement
+            doc.displacementImage = maps.height;
+            doc.displacementTex.Destroy();
+            doc.displacementReady = doc.displacementTex.Upload(doc.displacementImage);
+
+            return;
+        }
 
     }
 
@@ -921,8 +1048,8 @@ void NodeEditorPanel::RemoveNode(int nodeId)
 void NodeEditorPanel::DrawNodeContents(Node& n)
 {
 	// used to load a base material type, which will then be used to generate the final material output
-    //const char* items[] = { "Select Material",  "Brick", "Wood", "Metal", "Plastic"};
-        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic", "Rock", "Gravel", "Dirt"};
+        //Index  "Brick" =0 "Metal" =1 "Wood" =2 "Glass" =3 "Plastic" =4 "Rock" =5 "Dirt" =6 "Gravel" =7
+        const char* kinds[] = { "Brick", "Metal", "Wood", "Glass", "Plastic", "Rock", "Dirt", "Gravel" };
 
     switch (n.type)
     {
@@ -1139,6 +1266,44 @@ void NodeEditorPanel::DrawNodeContents(Node& n)
 		ImGui::Spacing(); ImGui::Spacing();
 		ImGui::ColorEdit3("Rust Color", n.col);
 		break;
+
+		// Dirt
+    
+	case NodeType::DirtAmount:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+        ImGui::SliderInt("Dirt Amount", &n.i0, 1, 1000);
+		break;
+	
+	case NodeType::ClodSize:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Clod Size", &n.f0, 0.0f, 1.0f);
+		break;
+		// gravel
+	case NodeType::StoneCount:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderInt("Stone Count", &n.i0, 0, 10000);
+		break;
+	case NodeType::Veins:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Veins", &n.f0, 0.0f, 1.0f);
+		break;
+	case NodeType::Irregularity:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Irregularity", &n.f0, 0.0f, 1.0f);
+		break;
+	case NodeType::Coverage:
+		ImGui::SetNextItemWidth((n.size.x - 60.0f) * m_zoom);
+		ImGui::Spacing(); ImGui::Spacing();
+		ImGui::SliderFloat("Coverage", &n.f0, 0.0f, 1.0f);
+		break;
+	
+
+
 
 
     }
@@ -1434,7 +1599,26 @@ void NodeEditorPanel::Draw(TextureDocument& doc)
 			if (ImGui::MenuItem("Add Rust Color")) {
 				NewNode(NodeType::RustColor, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
 			}
-
+			// Dirt
+			if (ImGui::MenuItem("Add Dirt Amount")) {
+				NewNode(NodeType::DirtAmount, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Clod Size")) {
+				NewNode(NodeType::ClodSize, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			// Gravel
+			if (ImGui::MenuItem("Add Stone Count")) {
+				NewNode(NodeType::StoneCount, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Veins")) {
+				NewNode(NodeType::Veins, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Irregularity")) {
+				NewNode(NodeType::Irregularity, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
+			if (ImGui::MenuItem("Add Coverage")) {
+				NewNode(NodeType::Coverage, ImVec2(80.0f - m_panning.x, 260.0f - m_panning.y));
+			}
 
 			ImGui::EndMenu();
 		}

@@ -111,10 +111,13 @@
     <ClCompile Include="src\core\DisplacementMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\material\Gravel.cpp">
+    <ClCompile Include="src\core\material\GravelMaterial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\material\Dirt.cpp">
+    <ClCompile Include="src\core\material\DirtMaterial.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\SpecularMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -242,10 +245,19 @@
     <ClInclude Include="inc\core\DisplacementMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="inc\core\material\Gravel.h">
+    <ClInclude Include="inc\core\material\GravelMaterial.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="inc\core\material\Dirt.h">
+    <ClInclude Include="inc\core\material\DirtMaterial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\core\material\DirtNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\core\material\GravelNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\core\material\SpecularMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -48,7 +48,7 @@ struct TextureDocument
 	std::string SuggestedRoughnessName() const;
 	std::string SuggestedAOName() const;
 	std::string SuggestedDisplacementName() const;
-	//std::string SuggestedSpecularName() const;
+	std::string SuggestedSpecularName() const;
     
 
     
